@@ -72,17 +72,17 @@ function repo_status() {
         # figure out local and remote branch, and ahead/behind/diverged
         if [[ "$git_branch_line" =~ Initial\ commit\ on\ (.+) ]]; then
             # "Initial commit on master"
-            git_branch="$GS_SYM_BRANCH$(gs_blue "${BASH_REMATCH[1]}")"
+            gs_head="$GS_SYM_BRANCH$(gs_blue "${BASH_REMATCH[1]}")"
             git_remote_status=$(gs_blue "$GS_SYM_NO_REMOTE")
         elif [[ "$git_branch_line" =~ no\ branch ]]; then
             # "HEAD (no branch)"
             git_tag=$(git describe --exact-match 2>/dev/null)
             if [ -n "$git_tag" ]; then
-                git_branch="$GS_SYM_TAG$(gs_blue "$git_tag")"
+                gs_head="$GS_SYM_TAG$(gs_blue "$git_tag")"
                 # TODO: how to tell if tag has been pushed
             else
                 git_commit_hash=$(git rev-parse --short HEAD)
-                git_branch="$GS_SYM_HASH$(gs_blue "$git_commit_hash")"
+                gs_head="$GS_SYM_HASH$(gs_blue "$git_commit_hash")"
             fi
             git_remote_status=$(gs_blue "$GS_SYM_NO_REMOTE")
         else
@@ -90,7 +90,7 @@ function repo_status() {
             # "master...origin/master [behind 12]"
             # "master...origin/master [ahead 1, behind 7]"
             git_branch_arr=(${git_branch_line//.../ })
-            git_branch="$GS_SYM_BRANCH$(gs_blue "${git_branch_arr[0]}")"
+            gs_head="$GS_SYM_BRANCH$(gs_blue "${git_branch_arr[0]}")"
             git_branch_arr=("${git_branch_arr[@]:1}") # remove the branch from the array
             # remote tracking branch
             if [[ ${git_branch_arr[0]} ]]; then
@@ -204,15 +204,15 @@ function repo_status() {
 
         gs_git=$(gs_blue "$GS_SYM_GIT")
 
-        echo -e "  $gs_git$git_branch $git_remote_status / $git_local_status"
-    elif [ -d .svn ]; then
-        svn_info=$(svn info 2>/dev/null)
-        svn_path=$( ( [[ "$svn_info" =~ URL:\ ([^$'\n']+) ]] && echo ${BASH_REMATCH[1]} ) || echo '?' )
-        svn_protocol=$(expr "$svn_path" : '\([a-z]\+://\)') # remove the svn:// or https:// from the start of the repo
-        svn_revision=$( [[ "$svn_info" =~ Revision:\ ([0-9]+) ]] && echo ${BASH_REMATCH[1]} )
-        svn_stat=$(svn status 2>/dev/null)
-        svn_dirty=$( ( [[ "$svn_stat" =~ [?!AM]([[:space:]]+[^$'\n']+) ]] && echo 'dirty' ) || echo "${COLOR_GREEN}✓${COLOR_RESET}" )
-        echo -e "  ${COLOR_BLUE}svn${COLOR_RESET}|${COLOR_BLUE}${svn_path#$svn_protocol}${COLOR_RESET}@${COLOR_BLUE}$svn_revision${COLOR_RESET} $svn_dirty"
+        echo -e "  $gs_git$gs_head $git_remote_status / $git_local_status"
+    #elif [ -d .svn ]; then
+    #    svn_info=$(svn info 2>/dev/null)
+    #    svn_path=$( ( [[ "$svn_info" =~ URL:\ ([^$'\n']+) ]] && echo ${BASH_REMATCH[1]} ) || echo '?' )
+    #    svn_protocol=$(expr "$svn_path" : '\([a-z]\+://\)') # remove the svn:// or https:// from the start of the repo
+    #    svn_revision=$( [[ "$svn_info" =~ Revision:\ ([0-9]+) ]] && echo ${BASH_REMATCH[1]} )
+    #    svn_stat=$(svn status 2>/dev/null)
+    #    svn_dirty=$( ( [[ "$svn_stat" =~ [?!AM]([[:space:]]+[^$'\n']+) ]] && echo 'dirty' ) || echo "${COLOR_GREEN}✓${COLOR_RESET}" )
+    #    echo -e "  ${COLOR_BLUE}svn${COLOR_RESET}|${COLOR_BLUE}${svn_path#$svn_protocol}${COLOR_RESET}@${COLOR_BLUE}$svn_revision${COLOR_RESET} $svn_dirty"
     else
         echo ''
     fi
