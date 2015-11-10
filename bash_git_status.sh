@@ -7,6 +7,30 @@ COLOR_YELLOW='\033[0;33m'
 COLOR_BLUE='\033[1;34m'
 COLOR_ORANGE='\033[38;5;95;38;5;208m'
 COLOR_RESET='\033[0m'
+
+# symbols used in the prompt
+GS_SYM_GIT='git'
+GS_SYM_BRANCH='|'
+GS_SYM_NO_REMOTE='-'
+GS_SYM_TAG='▹'
+GS_SYM_HASH=':'
+GS_SYM_NEED_PUSH='⇧'
+GS_SYM_NEED_PULL='⇩'
+GS_SYM_NEED_PUSH_UNTRACKED='⇪'
+GS_SYM_FORK='⑂'
+GS_SYM_REMOTE_OK='✓'
+GS_SYM_STAGED='⊕'
+GS_SYM_MODIFIED='⊛'
+GS_SYM_UNTRACKED='⍰'
+GS_SYM_CONFLICT='⚠'
+# TODO: icon for stashed
+GS_SYM_STASHED='<stashed>'
+# TODO: icon for rebase
+GS_SYM_REBASE='<rebase>'
+# TODO: icon for merge
+GS_SYM_MERGE='<merge>'
+GS_SYM_LOCAL_OK='✓'
+
 # show info about what kind of repo we're in
 # some code and ideas from:
 # - http://zanshin.net/2012/03/09/wordy-nerdy-zsh-prompt/
@@ -40,25 +64,25 @@ function repo_status() {
         # figure out local and remote branch, and ahead/behind/diverged
         if [[ "$git_branch_line" =~ Initial\ commit\ on\ (.+) ]]; then
             # "Initial commit on master"
-            git_branch="|${COLOR_BLUE}${BASH_REMATCH[1]}${COLOR_RESET}"
-            git_remote_status="${COLOR_BLUE}-${COLOR_RESET}"
+            git_branch="$GS_SYM_BRANCH${COLOR_BLUE}${BASH_REMATCH[1]}${COLOR_RESET}"
+            git_remote_status="${COLOR_BLUE}$GS_SYM_NO_REMOTE${COLOR_RESET}"
         elif [[ "$git_branch_line" =~ no\ branch ]]; then
             # "HEAD (no branch)"
             git_tag=$(git describe --exact-match 2>/dev/null)
             if [ -n "$git_tag" ]; then
-                git_branch="▹${COLOR_BLUE}$git_tag${COLOR_RESET}"
+                git_branch="$GS_SYM_TAG${COLOR_BLUE}$git_tag${COLOR_RESET}"
                 # TODO: how to tell if tag has been pushed
             else
                 git_commit_hash=$(git rev-parse --short HEAD)
-                git_branch=":${COLOR_BLUE}$git_commit_hash${COLOR_RESET}"
+                git_branch="$GS_SYM_HASH${COLOR_BLUE}$git_commit_hash${COLOR_RESET}"
             fi
-            git_remote_status="${COLOR_BLUE}-${COLOR_RESET}"
+            git_remote_status="${COLOR_BLUE}$GS_SYM_NO_REMOTE${COLOR_RESET}"
         else
             # "master...origin/master [ahead 8]"
             # "master...origin/master [behind 12]"
             # "master...origin/master [ahead 1, behind 7]"
             git_branch_arr=(${git_branch_line//.../ })
-            git_branch="|${COLOR_BLUE}${git_branch_arr[0]}${COLOR_RESET}"
+            git_branch="$GS_SYM_BRANCH${COLOR_BLUE}${git_branch_arr[0]}${COLOR_RESET}"
             git_branch_arr=("${git_branch_arr[@]:1}") # remove the branch from the array
             # remote tracking branch
             if [[ ${git_branch_arr[0]} ]]; then
@@ -67,12 +91,13 @@ function repo_status() {
                 git_branch_arr=("${git_branch_arr[@]:1}") # remove the remote branch from the array
                 git_ahead_behind="${git_branch_arr[*]}" # combine array elements
                 if [[ "$git_ahead_behind" =~ ahead\ ([0-9]+) ]]; then
-                    git_ahead="${COLOR_BLUE}${BASH_REMATCH[1]}${COLOR_RESET}⇧"
+                    git_ahead="${COLOR_BLUE}${BASH_REMATCH[1]}${COLOR_RESET}$GS_SYM_NEED_PUSH"
                 fi
                 if [[ "$git_ahead_behind" =~ behind\ ([0-9]+) ]]; then
-                    git_behind="${COLOR_BLUE}${BASH_REMATCH[1]}${COLOR_RESET}⇩"
+                    git_behind="${COLOR_BLUE}${BASH_REMATCH[1]}${COLOR_RESET}$GS_SYM_NEED_PULL"
                 fi
                 # difference between origin and upstream for forked repos
+                # TODO: refactor to function
                 if [[ ! $(ps) =~ git\ remote\ update ]]; then
                     nohup git remote update >/dev/null 2>&1 &
                 fi
@@ -86,16 +111,15 @@ function repo_status() {
                         git_fork_behind="${COLOR_BLUE}${git_fork_arr[1]}${COLOR_RESET}"
                     fi
                     if [ "$git_fork_ahead" ] || [ "$git_fork_behind" ]; then
-                        git_fork_status="${git_fork_ahead}⑂${git_fork_behind}"
+                        git_fork_status="${git_fork_ahead}$GS_SYM_FORK${git_fork_behind}"
                     fi
                 fi
                 if [ "$git_behind" ] || [ "$git_ahead" ] || [ "$git_fork_status" ]; then
                     git_remote_stat_arr=($git_behind $git_ahead $git_fork_status)
-                    local IFS=' '
-                    git_remote_status="${git_remote_stat_arr[*]}"
+                    git_remote_status=$(IFS=' ' ; echo "${git_remote_stat_arr[*]}")
                 else
                     # all sync-ed up
-                    git_remote_status="${COLOR_BLUE}✓${COLOR_RESET}"
+                    git_remote_status="${COLOR_BLUE}$GS_SYM_REMOTE_OK${COLOR_RESET}"
                 fi
             else
                 # local branch with no remote tracking
@@ -113,9 +137,9 @@ function repo_status() {
                 # figure out how many commits exist on this branch that are not in the remotes
                 git_local_commits=$(git rev-list --count HEAD ${git_excludes} 2>/dev/null)
                 if [ "$?" -eq 0 ] && [ "$git_local_commits" -gt 0 ]; then
-                    git_remote_status="${COLOR_BLUE}$git_local_commits${COLOR_RESET}⇪"
+                    git_remote_status="${COLOR_BLUE}$git_local_commits${COLOR_RESET}$GS_SYM_NEED_PUSH_UNTRACKED"
                 else
-                    git_remote_status="${COLOR_BLUE}-${COLOR_RESET}"
+                    git_remote_status="${COLOR_BLUE}$GS_SYM_NO_REMOTE${COLOR_RESET}"
                 fi
 
             fi
@@ -124,24 +148,23 @@ function repo_status() {
         git_stash_list=$(git stash list)
 
         if [ "$git_num_staged" -gt 0 ]; then
-            git_staged="${COLOR_GREEN}$git_num_staged${COLOR_RESET}⊕"
+            git_staged="${COLOR_GREEN}$git_num_staged${COLOR_RESET}$GS_SYM_STAGED"
         fi
         if [ "$git_num_modified" -gt 0 ]; then
-            git_modified="${COLOR_ORANGE}$git_num_modified${COLOR_RESET}⊛"
+            git_modified="${COLOR_ORANGE}$git_num_modified${COLOR_RESET}$GS_SYM_MODIFIED"
         fi
         if [ "$git_num_untracked" -gt 0 ]; then
-            git_untracked="${COLOR_YELLOW}$git_num_untracked${COLOR_RESET}⍰"
+            git_untracked="${COLOR_YELLOW}$git_num_untracked${COLOR_RESET}$GS_SYM_UNTRACKED"
         fi
         if [ "$git_num_conflict" -gt 0 ]; then
-            git_conflict="${COLOR_RED}$git_num_conflict${COLOR_RESET}⚠"
+            git_conflict="${COLOR_RED}$git_num_conflict${COLOR_RESET}$GS_SYM_CONFLICT"
         fi
         if [ "$git_stash_list" ]; then
             git_num_stashed=0
             while IFS='' read -r line; do
                 ((git_num_stashed++))
             done <<< "$git_stash_list"
-            # TODO: icon for stashed
-            git_stashed="${COLOR_YELLOW}$git_num_stashed${COLOR_RESET}<stashed>"
+            git_stashed="${COLOR_YELLOW}$git_num_stashed${COLOR_RESET}$GS_SYM_STASHED"
         fi
         if [ -d "$git_dir/rebase-apply" ] || [ -d "$git_dir/rebase-merge" ]; then
             if [ -f "$git_dir/rebase-apply/head-name" ]; then
@@ -152,8 +175,7 @@ function repo_status() {
                 git_rebase_head="!!"
             fi
             # TODO: strip out everything in front of the branch name
-            # TODO: icon for rebase
-            git_rebase="${COLOR_RED}$git_rebase_head${COLOR_RESET}<rebase>"
+            git_rebase="${COLOR_RED}$git_rebase_head${COLOR_RESET}$GS_SYM_REBASE"
         fi
         if [ -f "$git_dir/MERGE_HEAD" ]; then
             git_merge_head="$(cat "$git_dir/MERGE_HEAD")"
@@ -163,18 +185,16 @@ function repo_status() {
             else
                 git_merge_name="${git_merge_head:0:8}"
             fi
-            # TODO: icon for merge
-            git_merge="${COLOR_RED}$git_merge_name${COLOR_RESET}<merge>"
+            git_merge="${COLOR_RED}$git_merge_name${COLOR_RESET}$GS_SYM_MERGE"
         fi
         if [ "$git_staged" ] || [ "$git_modified" ] || [ "$git_untracked" ] || [ "$git_conflict" ] || [ "$git_stashed" ] || [ "$git_rebase" ] || [ "$git_merge" ]; then
             git_stat_arr=($git_staged $git_modified $git_untracked $git_conflict $git_stashed $git_rebase $git_merge)
-            local IFS=' '
-            git_local_status="${git_stat_arr[*]}"
+            git_local_status=$(IFS=' ' ; echo "${git_stat_arr[*]}")
         else
-            git_local_status="${COLOR_GREEN}✓${COLOR_RESET}"
+            git_local_status="${COLOR_GREEN}$GS_SYM_LOCAL_OK${COLOR_RESET}"
         fi
 
-        echo -e "  ${COLOR_BLUE}git${COLOR_RESET}$git_branch $git_remote_status / $git_local_status"
+        echo -e "  ${COLOR_BLUE}$GS_SYM_GIT${COLOR_RESET}$git_branch $git_remote_status / $git_local_status"
     elif [ -d .svn ]; then
         svn_info=$(svn info 2>/dev/null)
         svn_path=$( ( [[ "$svn_info" =~ URL:\ ([^$'\n']+) ]] && echo ${BASH_REMATCH[1]} ) || echo '?' )
