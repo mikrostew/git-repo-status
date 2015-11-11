@@ -125,21 +125,25 @@ function gs_set_local_status() {
         else
             git_rebase_head="!!"
         fi
-        # TODO: strip out everything in front of the branch name
+        if [[ "$git_rebase_head" =~ .*/([^/]+) ]]; then
+            git_rebase_head="${BASH_REMATCH[1]}"
+        fi
         git_rebase="$(gs_color "$GS_COLOR_REBASE" "$git_rebase_head")$GS_SYM_REBASE"
     fi
     if [ -f "$git_dir/MERGE_HEAD" ]; then
         git_merge_head="$(cat "$git_dir/MERGE_HEAD")"
         git_merge_branch="$(git branch --no-color --contains "$git_merge_head")"
         if [ "$git_merge_branch" ]; then
+            # remove '*' and whitespace from branch name
             git_merge_name="${git_merge_branch/\*/ }"
+            git_merge_name="${git_merge_name#"${git_merge_name%%[![:space:]]*}"}"
         else
             git_merge_name="${git_merge_head:0:8}"
         fi
         git_merge="$(gs_color "$GS_COLOR_MERGE" "$git_merge_name")$GS_SYM_MERGE"
     fi
     if [ "$git_staged" ] || [ "$git_modified" ] || [ "$git_untracked" ] || [ "$git_conflict" ] || [ "$git_stashed" ] || [ "$git_rebase" ] || [ "$git_merge" ]; then
-        git_stat_arr=($git_staged $git_modified $git_untracked $git_conflict $git_stashed $git_rebase $git_merge)
+        git_stat_arr=($git_rebase $git_merge $git_staged $git_modified $git_untracked $git_conflict $git_stashed)
         git_local_status=$(gs_join ' ' "${git_stat_arr[@]}")
     else
         git_local_status=$(gs_color "$GS_COLOR_LOCAL_OK" "$GS_SYM_LOCAL_OK")
