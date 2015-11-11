@@ -117,10 +117,21 @@ function gs_count_local_status() {
     done <<< "$git_status_porcelain"
 }
 
+function rs_git_stash() {
+    local git_stash_list=$(git stash list)
+    if [ "$git_stash_list" ]; then
+        local git_num_stashed=0
+        # TODO: easier way to count number of lines in a string var?
+        local IFS=''
+        while read -r line; do
+            ((git_num_stashed++))
+        done <<< "$git_stash_list"
+        echo "$(gs_color "$GS_COLOR_STASHED" "$git_num_stashed")$GS_SYM_STASHED"
+    fi
+}
+
 # combine local status into a string
 function gs_set_local_status() {
-    git_stash_list=$(git stash list)
-
     if [ "$git_num_staged" -gt 0 ]; then
         git_staged="$(gs_color "$GS_COLOR_STAGED" "$git_num_staged")$GS_SYM_STAGED"
     fi
@@ -133,14 +144,7 @@ function gs_set_local_status() {
     if [ "$git_num_conflict" -gt 0 ]; then
         git_conflict="$(gs_color "$GS_COLOR_CONFLICT" "$git_num_conflict")$GS_SYM_CONFLICT"
     fi
-    if [ "$git_stash_list" ]; then
-        git_num_stashed=0
-        local IFS=''
-        while read -r line; do
-            ((git_num_stashed++))
-        done <<< "$git_stash_list"
-        git_stashed="$(gs_color "$GS_COLOR_STASHED" "$git_num_stashed")$GS_SYM_STASHED"
-    fi
+    local git_stashed=$(rs_git_stash)
     if [ -d "$git_dir/rebase-apply" ] || [ -d "$git_dir/rebase-merge" ]; then
         if [ -f "$git_dir/rebase-apply/head-name" ]; then
             git_rebase_head="$(cat "$git_dir/rebase-apply/head-name")"
@@ -269,7 +273,7 @@ function repo_status() {
     # git
     git_status_porcelain=$(git status --porcelain --untracked-files=all --branch 2>/dev/null)
     if [ "$?" -eq 0 ]; then
-        gs_git=$(gs_color "$GS_COLOR_GIT" "$GS_SYM_GIT")
+        local gs_git=$(gs_color "$GS_COLOR_GIT" "$GS_SYM_GIT")
         git_dir=$(git rev-parse --git-dir)
         local rs_git_branch_info=$(rs_parse_branch_line "$git_status_porcelain")
         gs_remote_update_async
