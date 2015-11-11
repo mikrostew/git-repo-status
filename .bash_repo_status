@@ -9,7 +9,7 @@ COLOR_LIGHT_MAGENTA='\033[1;35m'
 COLOR_ORANGE='\033[38;5;95;38;5;208m'
 COLOR_RESET='\033[0m'
 
-# colors based on status
+# git colors
 GS_COLOR_GIT="$COLOR_LIGHT_BLUE"
 GS_COLOR_BRANCH="$COLOR_LIGHT_BLUE"
 GS_COLOR_NO_REMOTE="$COLOR_LIGHT_BLUE"
@@ -30,10 +30,17 @@ GS_COLOR_UNTRACKED="$COLOR_LIGHT_GRAY"
 GS_COLOR_STASHED="$COLOR_LIGHT_MAGENTA"
 GS_COLOR_MODIFIED="$COLOR_ORANGE"
 
+# svn colors
+RS_COLOR_SVN="$COLOR_LIGHT_BLUE"
+RS_COLOR_SVN_PATH="$COLOR_LIGHT_BLUE"
+RS_COLOR_SVN_REV="$COLOR_LIGHT_BLUE"
+RS_COLOR_SVN_OK="$COLOR_GREEN"
+RS_COLOR_SVN_DIRTY="$COLOR_RED"
+
 # functions to set colors
 function gs_color()  { echo "$1$2$COLOR_RESET"; }
 
-# symbols used in the prompt
+# git symbols
 GS_SYM_GIT='git'
 GS_SYM_BRANCH='|'
 GS_SYM_TAG='»'
@@ -53,6 +60,13 @@ GS_SYM_STASHED='ᕱ'
 GS_SYM_REBASE='ᚢ'
 GS_SYM_MERGE='⑃'
 GS_SYM_LOCAL_OK='✓'
+
+# svn symbols
+RS_SYM_SVN='svn'
+RS_SYM_SVN_REPO_PATH='|'
+RS_SYM_SVN_UNKNOWN_URL='?'
+RS_SYM_SVN_REV='@'
+RS_SYM_SVN_DIRTY='dirty'
 
 # asynchronously fetch updates for all remotes (does not run if already running)
 function gs_remote_update_async() {
@@ -238,6 +252,8 @@ function gs_set_remote_status() {
 # - https://github.com/sjl/oh-my-zsh/commit/3d22ee248c6bce357c018a93d31f8d292d2cb4cd
 # - https://github.com/magicmonty/bash-git-prompt
 function repo_status() {
+    rs_status=''
+    # git
     git_status_porcelain=$(git status --porcelain --untracked-files=all --branch 2>/dev/null)
     if [ "$?" -eq 0 ]; then
         gs_git=$(gs_color "$GS_COLOR_GIT" "$GS_SYM_GIT")
@@ -246,17 +262,31 @@ function repo_status() {
         gs_count_local_status
         gs_set_remote_status
         gs_set_local_status
-        echo -e "  $gs_git$gs_head $git_remote_status / $git_local_status"
-    #elif [ -d .svn ]; then
-    #    svn_info=$(svn info 2>/dev/null)
-    #    svn_path=$( ( [[ "$svn_info" =~ URL:\ ([^$'\n']+) ]] && echo ${BASH_REMATCH[1]} ) || echo '?' )
-    #    svn_protocol=$(expr "$svn_path" : '\([a-z]\+://\)') # remove the svn:// or https:// from the start of the repo
-    #    svn_revision=$( [[ "$svn_info" =~ Revision:\ ([0-9]+) ]] && echo ${BASH_REMATCH[1]} )
-    #    svn_stat=$(svn status 2>/dev/null)
-    #    svn_dirty=$( ( [[ "$svn_stat" =~ [?!AM]([[:space:]]+[^$'\n']+) ]] && echo 'dirty' ) || echo "${COLOR_GREEN}✓${COLOR_RESET}" )
-    #    echo -e "  ${COLOR_BLUE}svn${COLOR_RESET}|${COLOR_BLUE}${svn_path#$svn_protocol}${COLOR_RESET}@${COLOR_BLUE}$svn_revision${COLOR_RESET} $svn_dirty"
-    else
-        echo ''
+        rs_status+="  $gs_git$gs_head $git_remote_status / $git_local_status"
     fi
+    # svn
+    rs_svn_info=$(svn info 2>/dev/null)
+    if [ "$?" -eq 0 ]; then
+        rs_svn=$(gs_color "$RS_COLOR_SVN" "$RS_SYM_SVN")
+        if [[ "$rs_svn_info" =~ URL:\ ([^$'\n']+) ]]; then
+            svn_url="${BASH_REMATCH[1]}"
+            svn_protocol=$(expr "$svn_url" : '\([a-z]\+://\)') # match the svn:// or https:// from the start of the repo
+            svn_path="$RS_SYM_SVN_REPO_PATH$(gs_color "$RS_COLOR_SVN_PATH" "${svn_url#$svn_protocol}")"
+        else
+            svn_path=$(gs_color "$RS_COLOR_SVN_PATH" "$RS_SYM_SVN_UNKNOWN_URL")
+        fi
+        if [[ "$rs_svn_info" =~ Revision:\ ([0-9]+) ]]; then
+            svn_revision="$RS_SYM_SVN_REV$(gs_color "$RS_COLOR_SVN_REV" "${BASH_REMATCH[1]}")"
+        fi
+        svn_status=$(svn status 2>/dev/null)
+        # TODO - more detailed status (see `svn status --help` for the codes)
+        if [[ "$svn_status" =~ [?!AM]([[:space:]]+[^$'\n']+) ]]; then
+            svn_dirty=$(gs_color "$RS_COLOR_SVN_DIRTY" "$RS_SYM_SVN_DIRTY")
+        else
+            svn_dirty=$(gs_color "$RS_COLOR_SVN_OK" "✓")
+        fi
+        rs_status+="  $rs_svn$svn_path$svn_revision $svn_dirty"
+    fi
+    echo -e "$rs_status"
 }
 
