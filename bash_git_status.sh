@@ -55,13 +55,28 @@ GS_SYM_REBASE='<rebase>'
 GS_SYM_MERGE='<merge>'
 GS_SYM_LOCAL_OK='✓'
 
+# asynchronously fetch updates for all remotes (does not run if already running)
+function gs_remote_update_async() {
+    if [[ ! $(ps) =~ git\ remote\ update ]]; then
+        nohup git remote update >/dev/null 2>&1 &
+    fi
+}
+
+# join elements of an array
+function gs_join() {
+    local IFS="$1"
+    shift
+    echo "$*"
+}
+
 # count occurrences of staged/modified/conflict/untracked
 function gs_count_local_status() {
     git_num_staged=0
     git_num_modified=0
     git_num_conflict=0
     git_num_untracked=0
-    while IFS='' read -r line; do
+    local IFS=''
+    while read -r line; do
         XY=${line:0:2}
         case "$XY" in
             \#\#)   git_branch_line="${line:3}" ;;
@@ -96,7 +111,8 @@ function gs_set_local_status() {
     fi
     if [ "$git_stash_list" ]; then
         git_num_stashed=0
-        while IFS='' read -r line; do
+        local IFS=''
+        while read -r line; do
             ((git_num_stashed++))
         done <<< "$git_stash_list"
         git_stashed="$(gs_color "$GS_COLOR_STASHED" "$git_num_stashed")$GS_SYM_STASHED"
@@ -124,7 +140,7 @@ function gs_set_local_status() {
     fi
     if [ "$git_staged" ] || [ "$git_modified" ] || [ "$git_untracked" ] || [ "$git_conflict" ] || [ "$git_stashed" ] || [ "$git_rebase" ] || [ "$git_merge" ]; then
         git_stat_arr=($git_staged $git_modified $git_untracked $git_conflict $git_stashed $git_rebase $git_merge)
-        git_local_status=$(IFS=' ' ; echo "${git_stat_arr[*]}")
+        git_local_status=$(gs_join ' ' "${git_stat_arr[@]}")
     else
         git_local_status=$(gs_color "$GS_COLOR_LOCAL_OK" "$GS_SYM_LOCAL_OK")
     fi
@@ -166,11 +182,6 @@ function gs_set_remote_status() {
             if [[ "$git_ahead_behind" =~ behind\ ([0-9]+) ]]; then
                 git_behind="$(gs_color "$GS_COLOR_NEED_PULL" "${BASH_REMATCH[1]}")$GS_SYM_NEED_PULL"
             fi
-            # difference between origin and upstream for forked repos
-            # TODO: refactor to function
-            if [[ ! $(ps) =~ git\ remote\ update ]]; then
-                nohup git remote update >/dev/null 2>&1 &
-            fi
             git_rev_list=$(git rev-list --count --left-right ${git_origin}..${git_upstream} 2>/dev/null)
             if [ "$?" -eq 0 ]; then
                 git_fork_arr=($git_rev_list) # will split into array because it's 2 numbers separated by spaces
@@ -186,7 +197,7 @@ function gs_set_remote_status() {
             fi
             if [ "$git_behind" ] || [ "$git_ahead" ] || [ "$git_fork_status" ]; then
                 git_remote_stat_arr=($git_behind $git_ahead $git_fork_status)
-                git_remote_status=$(IFS=' ' ; echo "${git_remote_stat_arr[*]}")
+                git_remote_status=$(gs_join ' ' "${git_remote_stat_arr[@]}")
             else
                 # all sync-ed up
                 git_remote_status=$(gs_color "$GS_COLOR_REMOTE_OK" "$GS_SYM_REMOTE_OK")
@@ -202,7 +213,7 @@ function gs_set_remote_status() {
                         git_excludes_arr+=("^$r")
                     fi
                 done
-                git_excludes=$(IFS=' ' ; echo "${git_excludes_arr[*]}")
+                git_excludes=$(gs_join ' ' "${git_excludes_arr[@]}")
             fi
             # figure out how many commits exist on this branch that are not in the remotes
             git_local_commits=$(git rev-list --count HEAD ${git_excludes} 2>/dev/null)
@@ -226,6 +237,7 @@ function repo_status() {
     if [ "$?" -eq 0 ]; then
         gs_git=$(gs_color "$GS_COLOR_GIT" "$GS_SYM_GIT")
         git_dir=$(git rev-parse --git-dir)
+        gs_remote_update_async
         gs_count_local_status
         gs_set_remote_status
         gs_set_local_status
