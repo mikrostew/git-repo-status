@@ -82,6 +82,18 @@ function gs_join() {
     echo "$*"
 }
 
+# parse the branch info from `git status --porcelain --branch`
+function rs_parse_branch_line() {
+    # TODO: simplifiy - this seems overcomplicated, maybe just use a regex?
+    local IFS=''
+    while read -r line; do
+        local XY=${line:0:2}
+        case "$XY" in
+            \#\#)  echo "${line:3}"; break ;;
+        esac
+    done <<< "$1"
+}
+
 # count occurrences of staged/modified/conflict/untracked
 function gs_count_local_status() {
     git_num_staged=0
@@ -92,7 +104,6 @@ function gs_count_local_status() {
     while read -r line; do
         XY=${line:0:2}
         case "$XY" in
-            \#\#)   git_branch_line="${line:3}" ;;
             U?)     ((git_num_conflict++)) ;;  # unmerged
             ?U)     ((git_num_conflict++)) ;;  # unmerged
             DD)     ((git_num_conflict++)) ;;  # unmerged (both deleted)
@@ -163,13 +174,15 @@ function gs_set_local_status() {
     fi
 }
 
+# arguments:
+# $1 - git granch line from `git status --porcelain --branch`, without the leading "## "
 function gs_set_remote_status() {
     # figure out local and remote branch, and ahead/behind/diverged
-    if [[ "$git_branch_line" =~ Initial\ commit\ on\ (.+) ]]; then
+    if [[ "$1" =~ Initial\ commit\ on\ (.+) ]]; then
         # "Initial commit on master"
         gs_head="$GS_SYM_BRANCH$(gs_color "$GS_COLOR_BRANCH" "${BASH_REMATCH[1]}")"
         git_remote_status=$(gs_color "$GS_COLOR_NO_REMOTE" "$GS_SYM_NO_REMOTE")
-    elif [[ "$git_branch_line" =~ no\ branch ]]; then
+    elif [[ "$1" =~ no\ branch ]]; then
         # "HEAD (no branch)"
         git_tag=$(git describe --exact-match 2>/dev/null)
         if [ -n "$git_tag" ]; then
@@ -186,7 +199,7 @@ function gs_set_remote_status() {
         # "master...origin/master [ahead 8]"
         # "master...origin/master [behind 12]"
         # "master...origin/master [ahead 1, behind 7]"
-        git_branch_arr=(${git_branch_line//.../ })
+        git_branch_arr=(${1//.../ })
         gs_head="$GS_SYM_BRANCH$(gs_color "$GS_COLOR_BRANCH" "${git_branch_arr[0]}")"
         git_branch_arr=("${git_branch_arr[@]:1}") # remove the branch from the array
         # remote tracking branch
@@ -258,9 +271,10 @@ function repo_status() {
     if [ "$?" -eq 0 ]; then
         gs_git=$(gs_color "$GS_COLOR_GIT" "$GS_SYM_GIT")
         git_dir=$(git rev-parse --git-dir)
+        local rs_git_branch_info=$(rs_parse_branch_line "$git_status_porcelain")
         gs_remote_update_async
         gs_count_local_status
-        gs_set_remote_status
+        gs_set_remote_status "$rs_git_branch_info"
         gs_set_local_status
         rs_status+="  $gs_git$gs_head $git_remote_status / $git_local_status"
     fi
@@ -268,6 +282,7 @@ function repo_status() {
     rs_svn_info=$(svn info 2>/dev/null)
     if [ "$?" -eq 0 ]; then
         rs_svn=$(gs_color "$RS_COLOR_SVN" "$RS_SYM_SVN")
+        # TODO: split URI and path with something like '/'
         if [[ "$rs_svn_info" =~ URL:\ ([^$'\n']+) ]]; then
             svn_url="${BASH_REMATCH[1]}"
             svn_protocol=$(expr "$svn_url" : '\([a-z]\+://\)') # match the svn:// or https:// from the start of the repo
