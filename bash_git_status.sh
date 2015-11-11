@@ -1,32 +1,33 @@
 #!/usr/bin/env bash
 
 # colors used in the prompt
+COLOR_LIGHT_GRAY='\033[1;30m'
 COLOR_RED='\033[0;31m'
 COLOR_GREEN='\033[0;32m'
-COLOR_YELLOW='\033[0;33m'
-COLOR_BLUE='\033[1;34m'
+COLOR_LIGHT_BLUE='\033[1;34m'
+COLOR_LIGHT_MAGENTA='\033[1;35m'
 COLOR_ORANGE='\033[38;5;95;38;5;208m'
 COLOR_RESET='\033[0m'
 
 # colors based on status
-GS_COLOR_GIT="$COLOR_BLUE"
-GS_COLOR_BRANCH="$COLOR_BLUE"
-GS_COLOR_NO_REMOTE="$COLOR_BLUE"
-GS_COLOR_TAG="$COLOR_BLUE"
-GS_COLOR_HASH="$COLOR_BLUE"
-GS_COLOR_NEED_PUSH="$COLOR_BLUE"
-GS_COLOR_NEED_PULL="$COLOR_BLUE"
-GS_COLOR_FORK_AHEAD="$COLOR_BLUE"
-GS_COLOR_FORK_BEHIND="$COLOR_BLUE"
-GS_COLOR_REMOTE_OK="$COLOR_BLUE"
-GS_COLOR_NEED_PUSH_UNTRACKED="$COLOR_BLUE"
+GS_COLOR_GIT="$COLOR_LIGHT_BLUE"
+GS_COLOR_BRANCH="$COLOR_LIGHT_BLUE"
+GS_COLOR_NO_REMOTE="$COLOR_LIGHT_BLUE"
+GS_COLOR_TAG="$COLOR_LIGHT_BLUE"
+GS_COLOR_HASH="$COLOR_LIGHT_BLUE"
+GS_COLOR_NEED_PUSH="$COLOR_LIGHT_BLUE"
+GS_COLOR_NEED_PULL="$COLOR_LIGHT_BLUE"
+GS_COLOR_FORK_AHEAD="$COLOR_LIGHT_BLUE"
+GS_COLOR_FORK_BEHIND="$COLOR_LIGHT_BLUE"
+GS_COLOR_REMOTE_OK="$COLOR_LIGHT_BLUE"
+GS_COLOR_NEED_PUSH_UNTRACKED="$COLOR_LIGHT_BLUE"
 GS_COLOR_CONFLICT="$COLOR_RED"
 GS_COLOR_REBASE="$COLOR_RED"
 GS_COLOR_MERGE="$COLOR_RED"
 GS_COLOR_STAGED="$COLOR_GREEN"
 GS_COLOR_LOCAL_OK="$COLOR_GREEN"
-GS_COLOR_UNTRACKED="$COLOR_YELLOW"
-GS_COLOR_STASHED="$COLOR_YELLOW"
+GS_COLOR_UNTRACKED="$COLOR_LIGHT_GRAY"
+GS_COLOR_STASHED="$COLOR_LIGHT_MAGENTA"
 GS_COLOR_MODIFIED="$COLOR_ORANGE"
 
 # functions to set colors
@@ -35,24 +36,22 @@ function gs_color()  { echo "$1$2$COLOR_RESET"; }
 # symbols used in the prompt
 GS_SYM_GIT='git'
 GS_SYM_BRANCH='|'
+GS_SYM_TAG='»'
+GS_SYM_HASH='#'
 GS_SYM_NO_REMOTE='-'
-GS_SYM_TAG='▹'
-GS_SYM_HASH=':'
 GS_SYM_NEED_PUSH='⇧'
 GS_SYM_NEED_PULL='⇩'
 GS_SYM_NEED_PUSH_UNTRACKED='⇪'
-GS_SYM_FORK='⑂'
+#GS_SYM_FORK='⑂'
+GS_SYM_FORK='Ⴤ'
 GS_SYM_REMOTE_OK='✓'
-GS_SYM_STAGED='⊕'
-GS_SYM_MODIFIED='⊛'
-GS_SYM_UNTRACKED='⍰'
-GS_SYM_CONFLICT='⚠'
-# TODO: icon for stashed
-GS_SYM_STASHED='<stashed>'
-# TODO: icon for rebase
-GS_SYM_REBASE='<rebase>'
-# TODO: icon for merge
-GS_SYM_MERGE='<merge>'
+GS_SYM_STAGED='+'
+GS_SYM_MODIFIED='*'
+GS_SYM_UNTRACKED='?'
+GS_SYM_CONFLICT='!'
+GS_SYM_STASHED='ᕱ'
+GS_SYM_REBASE='ᚢ'
+GS_SYM_MERGE='⑃'
 GS_SYM_LOCAL_OK='✓'
 
 # asynchronously fetch updates for all remotes (does not run if already running)
@@ -128,7 +127,7 @@ function gs_set_local_status() {
         if [[ "$git_rebase_head" =~ .*/([^/]+) ]]; then
             git_rebase_head="${BASH_REMATCH[1]}"
         fi
-        git_rebase="$(gs_color "$GS_COLOR_REBASE" "$git_rebase_head")$GS_SYM_REBASE"
+        git_rebase="$GS_SYM_REBASE$(gs_color "$GS_COLOR_REBASE" "$git_rebase_head")"
     fi
     if [ -f "$git_dir/MERGE_HEAD" ]; then
         git_merge_head="$(cat "$git_dir/MERGE_HEAD")"
@@ -140,10 +139,10 @@ function gs_set_local_status() {
         else
             git_merge_name="${git_merge_head:0:8}"
         fi
-        git_merge="$(gs_color "$GS_COLOR_MERGE" "$git_merge_name")$GS_SYM_MERGE"
+        git_merge="$GS_SYM_MERGE$(gs_color "$GS_COLOR_MERGE" "$git_merge_name")"
     fi
     if [ "$git_staged" ] || [ "$git_modified" ] || [ "$git_untracked" ] || [ "$git_conflict" ] || [ "$git_stashed" ] || [ "$git_rebase" ] || [ "$git_merge" ]; then
-        git_stat_arr=($git_rebase $git_merge $git_staged $git_modified $git_untracked $git_conflict $git_stashed)
+        git_stat_arr=($git_rebase $git_merge $git_conflict $git_staged $git_modified $git_stashed $git_untracked)
         git_local_status=$(gs_join ' ' "${git_stat_arr[@]}")
     else
         git_local_status=$(gs_color "$GS_COLOR_LOCAL_OK" "$GS_SYM_LOCAL_OK")
@@ -161,7 +160,9 @@ function gs_set_remote_status() {
         git_tag=$(git describe --exact-match 2>/dev/null)
         if [ -n "$git_tag" ]; then
             gs_head="$GS_SYM_TAG$(gs_color "$GS_COLOR_TAG" "$git_tag")"
-            # TODO: how to tell if tag has been pushed
+            # to check if tag has been pushed, can do something like:
+            # `git ls-remote --exit-code --tags origin v1.0 2>/dev/null`
+            # but that's slow
         else
             git_commit_hash=$(git rev-parse --short HEAD)
             gs_head="$GS_SYM_HASH$(gs_color "$GS_COLOR_HASH" "$git_commit_hash")"
