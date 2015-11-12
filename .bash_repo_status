@@ -170,6 +170,7 @@ function rs_git_merge() {
 # combine local status into a string
 # arguments:
 # $1 - git base directory
+# $2 - git granch line from `git status --porcelain --branch`, without the leading "## "
 function rs_git_local_status() {
     local git_dir="$1"
     local git_num_staged=0
@@ -190,7 +191,7 @@ function rs_git_local_status() {
         case "$XY" in
             [MARCD]?) ((git_num_staged++)) ;; # modified/added/renamed/copied/deleted in index
         esac
-    done <<< "$git_status_porcelain"
+    done <<< "$2"
 
     if [ "$git_num_staged" -gt 0 ]; then
         local git_staged="$(gs_color "$GS_COLOR_STAGED" "$git_num_staged")$GS_SYM_STAGED"
@@ -219,88 +220,99 @@ function rs_git_local_status() {
     fi
 }
 
+# return local branch/tag/commit and remote branch if it exists
 # arguments:
 # $1 - git granch line from `git status --porcelain --branch`, without the leading "## "
-function gs_set_remote_status() {
-    # figure out local and remote branch, and ahead/behind/diverged
+function rs_git_head_origin() {
+    local git_head=''
     if [[ "$1" =~ Initial\ commit\ on\ (.+) ]]; then
-        # "Initial commit on master"
-        gs_head="$GS_SYM_BRANCH$(gs_color "$GS_COLOR_BRANCH" "${BASH_REMATCH[1]}")"
-        git_remote_status=$(gs_color "$GS_COLOR_NO_REMOTE" "$GS_SYM_NO_REMOTE")
+        # "Initial commit on master" - local branch only
+        echo "$GS_SYM_BRANCH$(gs_color "$GS_COLOR_BRANCH" "${BASH_REMATCH[1]}")"
     elif [[ "$1" =~ no\ branch ]]; then
-        # "HEAD (no branch)"
-        git_tag=$(git describe --exact-match 2>/dev/null)
+        # "HEAD (no branch)" - on tag or detached on commit
+        local git_tag=$(git describe --exact-match 2>/dev/null)
         if [ -n "$git_tag" ]; then
-            gs_head="$GS_SYM_TAG$(gs_color "$GS_COLOR_TAG" "$git_tag")"
-            # to check if tag has been pushed, can do something like:
-            # `git ls-remote --exit-code --tags origin v1.0 2>/dev/null`
-            # but that's slow
+            echo "$GS_SYM_TAG$(gs_color "$GS_COLOR_TAG" "$git_tag")"
         else
-            git_commit_hash=$(git rev-parse --short HEAD)
-            gs_head="$GS_SYM_HASH$(gs_color "$GS_COLOR_HASH" "$git_commit_hash")"
+            local git_commit_hash=$(git rev-parse --short HEAD)
+            echo "$GS_SYM_HASH$(gs_color "$GS_COLOR_HASH" "$git_commit_hash")"
         fi
-        git_remote_status=$(gs_color "$GS_COLOR_NO_REMOTE" "$GS_SYM_NO_REMOTE")
     else
         # "master...origin/master [ahead 8]"
         # "master...origin/master [behind 12]"
         # "master...origin/master [ahead 1, behind 7]"
-        git_branch_arr=(${1//.../ })
-        gs_head="$GS_SYM_BRANCH$(gs_color "$GS_COLOR_BRANCH" "${git_branch_arr[0]}")"
-        git_branch_arr=("${git_branch_arr[@]:1}") # remove the branch from the array
-        # remote tracking branch
-        if [[ ${git_branch_arr[0]} ]]; then
-            git_origin=${git_branch_arr[0]}
-            git_upstream=${git_origin/origin/upstream}
-            git_branch_arr=("${git_branch_arr[@]:1}") # remove the remote branch from the array
-            git_ahead_behind="${git_branch_arr[*]}" # combine array elements
-            if [[ "$git_ahead_behind" =~ ahead\ ([0-9]+) ]]; then
-                git_ahead="$(gs_color "$GS_COLOR_NEED_PUSH" "${BASH_REMATCH[1]}")$GS_SYM_NEED_PUSH"
-            fi
-            if [[ "$git_ahead_behind" =~ behind\ ([0-9]+) ]]; then
-                git_behind="$(gs_color "$GS_COLOR_NEED_PULL" "${BASH_REMATCH[1]}")$GS_SYM_NEED_PULL"
-            fi
-            git_rev_list=$(git rev-list --count --left-right ${git_origin}..${git_upstream} 2>/dev/null)
-            if [ "$?" -eq 0 ]; then
-                git_fork_arr=($git_rev_list) # will split into array because it's 2 numbers separated by spaces
-                if [ "${git_fork_arr[0]}" -gt 0 ]; then
-                    git_fork_ahead=$(gs_color "$GS_COLOR_FORK_AHEAD" "${git_fork_arr[0]}")
-                fi
-                if [ "${git_fork_arr[1]}" -gt 0 ]; then
-                    git_fork_behind=$(gs_color "$GS_COLOR_FORK_BEHIND" "${git_fork_arr[1]}")
-                fi
-                if [ "$git_fork_ahead" ] || [ "$git_fork_behind" ]; then
-                    git_fork_status="${git_fork_ahead}$GS_SYM_FORK${git_fork_behind}"
-                fi
-            fi
-            if [ "$git_behind" ] || [ "$git_ahead" ] || [ "$git_fork_status" ]; then
-                git_remote_stat_arr=($git_behind $git_ahead $git_fork_status)
-                git_remote_status=$(gs_join ' ' "${git_remote_stat_arr[@]}")
-            else
-                # all sync-ed up
-                git_remote_status=$(gs_color "$GS_COLOR_REMOTE_OK" "$GS_SYM_REMOTE_OK")
-            fi
-        else
-            # local branch with no remote tracking
-            git_remote_branches=$(git branch -r)
-            if [ "$git_remote_branches" ]; then
-                git_remotes_arr=($git_remote_branches)
-                git_excludes_arr=()
-                for r in "${git_remotes_arr[@]}"; do
-                    if [[ "$r" != "->" ]]; then
-                        git_excludes_arr+=("^$r")
-                    fi
-                done
-                git_excludes=$(gs_join ' ' "${git_excludes_arr[@]}")
-            fi
-            # figure out how many commits exist on this branch that are not in the remotes
-            git_local_commits=$(git rev-list --count HEAD ${git_excludes} 2>/dev/null)
-            if [ "$?" -eq 0 ] && [ "$git_local_commits" -gt 0 ]; then
-                git_remote_status="$(gs_color "$GS_COLOR_NEED_PUSH_UNTRACKED" "$git_local_commits")$GS_SYM_NEED_PUSH_UNTRACKED"
-            else
-                git_remote_status=$(gs_color "$GS_COLOR_NO_REMOTE" "$GS_SYM_NO_REMOTE")
-            fi
+        local git_branch_arr=(${1//.../ })
+        local git_branch="$GS_SYM_BRANCH$(gs_color "$GS_COLOR_BRANCH" "${git_branch_arr[0]}")"
+        local git_branch_nocolor="${git_branch_arr[0]}"
+        local git_origin="${git_branch_arr[1]}"
+        # git branches can't contain spaces, so this should be relatively safe
+        echo "$git_branch $git_branch_nocolor $git_origin"
+    fi
+}
 
+# arguments:
+# $1 - local git branch
+# $2 - origin branch that is tracking the local branch (if it exists)
+function rs_git_remote_status() {
+    local git_head="$1"
+    local git_origin="$2"
+    local git_upstream="${2/origin/upstream}"
+    if [[ -z "$git_origin" ]]; then
+        # local branch with no remote tracking
+        local git_excludes=''
+        local git_remote_branches=$(git branch -r)
+        if [ "$git_remote_branches" ]; then
+            local git_remotes_arr=($git_remote_branches)
+            local git_excludes_arr=()
+            for r in "${git_remotes_arr[@]}"; do
+                if [[ "$r" != "->" ]]; then
+                    git_excludes_arr+=("^$r")
+                fi
+            done
+            git_excludes=$(gs_join ' ' "${git_excludes_arr[@]}")
         fi
+        # figure out how many commits exist on this branch that are not in the remotes
+        local git_local_commits=$(git rev-list --count HEAD ${git_excludes} 2>/dev/null)
+        if [ "$?" -eq 0 ] && [ "$git_local_commits" -gt 0 ]; then
+            local git_remote_status="$(gs_color "$GS_COLOR_NEED_PUSH_UNTRACKED" "$git_local_commits")$GS_SYM_NEED_PUSH_UNTRACKED"
+        else
+            local git_remote_status=$(gs_color "$GS_COLOR_NO_REMOTE" "$GS_SYM_NO_REMOTE")
+        fi
+        echo "$git_remote_status"
+    else
+        # remote tracking branch
+        local git_rev_list_origin=$(git rev-list --count --left-right ${git_head}..${git_origin} 2>/dev/null)
+        if [ "$?" -eq 0 ]; then
+            local git_origin_arr=($git_rev_list_origin) # will split into array because it's 2 numbers separated by spaces
+            if [ "${git_origin_arr[0]}" -gt 0 ]; then
+                local git_ahead="$(gs_color "$GS_COLOR_NEED_PUSH" "${git_origin_arr[0]}")$GS_SYM_NEED_PUSH"
+            fi
+            if [ "${git_origin_arr[1]}" -gt 0 ]; then
+                local git_behind="$(gs_color "$GS_COLOR_NEED_PULL" "${git_origin_arr[1]}")$GS_SYM_NEED_PUSH"
+            fi
+        fi
+        git_rev_list_upstream=$(git rev-list --count --left-right ${git_origin}..${git_upstream} 2>/dev/null)
+        if [ "$?" -eq 0 ]; then
+            local git_upstream_arr=($git_rev_list_upstream) # will split into array because it's 2 numbers separated by spaces
+            if [ "${git_upstream_arr[0]}" -gt 0 ]; then
+                local git_fork_ahead=$(gs_color "$GS_COLOR_FORK_AHEAD" "${git_upstream_arr[0]}")
+            fi
+            if [ "${git_upstream_arr[1]}" -gt 0 ]; then
+                local git_fork_behind=$(gs_color "$GS_COLOR_FORK_BEHIND" "${git_upstream_arr[1]}")
+            fi
+            if [ "$git_fork_ahead" ] || [ "$git_fork_behind" ]; then
+                local git_fork_status="${git_fork_ahead}$GS_SYM_FORK${git_fork_behind}"
+            fi
+        fi
+
+        if [ "$git_behind" ] || [ "$git_ahead" ] || [ "$git_fork_status" ]; then
+            local git_remote_stat_arr=($git_behind $git_ahead $git_fork_status)
+            local git_remote_status=$(gs_join ' ' "${git_remote_stat_arr[@]}")
+        else
+            # all sync-ed up
+            local git_remote_status=$(gs_color "$GS_COLOR_REMOTE_OK" "$GS_SYM_REMOTE_OK")
+        fi
+        echo "$git_remote_status"
     fi
 }
 
@@ -312,15 +324,19 @@ function gs_set_remote_status() {
 function repo_status() {
     rs_status=''
     # git
-    git_status_porcelain=$(git status --porcelain --untracked-files=all --branch 2>/dev/null)
+    local git_status_porcelain=$(git status --porcelain --untracked-files=all --branch 2>/dev/null)
     if [ "$?" -eq 0 ]; then
+        gs_remote_update_async
         local gs_git=$(gs_color "$GS_COLOR_GIT" "$GS_SYM_GIT")
         local git_dir=$(git rev-parse --git-dir)
         local git_branch_info=$(rs_parse_branch_line "$git_status_porcelain")
-        gs_remote_update_async
-        gs_set_remote_status "$git_branch_info"
-        local git_local_status=$(rs_git_local_status "$git_dir")
-        rs_status+="  $gs_git$gs_head $git_remote_status / $git_local_status"
+        local git_branch_arr=( $(rs_git_head_origin "$git_branch_info") )
+        local git_head="${git_branch_arr[0]}"
+        local git_head_nocolor="${git_branch_arr[1]}"
+        local git_origin="${git_branch_arr[2]}"
+        local git_remote_status=$(rs_git_remote_status "$git_head_nocolor" "$git_origin")
+        local git_local_status=$(rs_git_local_status "$git_dir" "$git_status_porcelain")
+        rs_status+="  $gs_git$git_head $git_remote_status / $git_local_status"
     fi
     # svn
     rs_svn_info=$(svn info 2>/dev/null)
