@@ -28,6 +28,7 @@ GS_COLOR_STAGED="$COLOR_GREEN"
 GS_COLOR_LOCAL_OK="$COLOR_GREEN"
 GS_COLOR_UNTRACKED="$COLOR_LIGHT_GRAY"
 GS_COLOR_STASHED="$COLOR_LIGHT_MAGENTA"
+GS_COLOR_BACKUP_REF="$COLOR_ORANGE"
 GS_COLOR_MODIFIED="$COLOR_ORANGE"
 
 # svn colors
@@ -57,6 +58,7 @@ GS_SYM_MODIFIED='*'
 GS_SYM_UNTRACKED='?'
 GS_SYM_CONFLICT='!'
 GS_SYM_STASHED='ᕱ'
+GS_SYM_BACKUP_REF='⟲'
 GS_SYM_REBASE='ᚢ'
 GS_SYM_MERGE='⑃'
 GS_SYM_LOCAL_OK='✓'
@@ -130,6 +132,25 @@ function rs_git_stash() {
     fi
 }
 
+function rs_git_backup_refs() {
+    local git_show_ref=$(git show-ref)
+    if [ "$git_show_ref" ]; then
+        local git_num_orig_refs=0
+        # TODO: easier way to do this?
+        local IFS=''
+        while read -r line; do
+            if [[ "$line" =~ ^[0-9a-f]+[[:space:]]+refs/original ]]; then
+                ((git_num_orig_refs++))
+            fi
+        done <<< "$git_show_ref"
+        if [ "$git_num_orig_refs" -gt 0 ]; then
+            echo "$(gs_color "$GS_COLOR_BACKUP_REF" "$git_num_orig_refs")$GS_SYM_BACKUP_REF"
+        else
+            echo ''
+        fi
+    fi
+}
+
 # combine local status into a string
 function gs_set_local_status() {
     if [ "$git_num_staged" -gt 0 ]; then
@@ -145,6 +166,7 @@ function gs_set_local_status() {
         git_conflict="$(gs_color "$GS_COLOR_CONFLICT" "$git_num_conflict")$GS_SYM_CONFLICT"
     fi
     local git_stashed=$(rs_git_stash)
+    local git_backup_refs=$(rs_git_backup_refs)
     if [ -d "$git_dir/rebase-apply" ] || [ -d "$git_dir/rebase-merge" ]; then
         if [ -f "$git_dir/rebase-apply/head-name" ]; then
             git_rebase_head="$(cat "$git_dir/rebase-apply/head-name")"
@@ -170,8 +192,8 @@ function gs_set_local_status() {
         fi
         git_merge="$GS_SYM_MERGE$(gs_color "$GS_COLOR_MERGE" "$git_merge_name")"
     fi
-    if [ "$git_staged" ] || [ "$git_modified" ] || [ "$git_untracked" ] || [ "$git_conflict" ] || [ "$git_stashed" ] || [ "$git_rebase" ] || [ "$git_merge" ]; then
-        git_stat_arr=($git_rebase $git_merge $git_conflict $git_staged $git_modified $git_stashed $git_untracked)
+    if [ "$git_staged" ] || [ "$git_modified" ] || [ "$git_untracked" ] || [ "$git_conflict" ] || [ "$git_stashed" ] || [ "$git_rebase" ] || [ "$git_merge" ] || [ "$git_backup_refs" ]; then
+        git_stat_arr=($git_rebase $git_merge $git_conflict $git_backup_refs $git_staged $git_modified $git_stashed $git_untracked)
         git_local_status=$(gs_join ' ' "${git_stat_arr[@]}")
     else
         git_local_status=$(gs_color "$GS_COLOR_LOCAL_OK" "$GS_SYM_LOCAL_OK")
