@@ -151,6 +151,45 @@ function rs_git_backup_refs() {
     fi
 }
 
+# arguments
+# $1 - git base dir
+function rs_git_rebase() {
+    local git_dir="$1"
+    local git_rebase_head=''
+    if [ -d "$git_dir/rebase-apply" ] || [ -d "$git_dir/rebase-merge" ]; then
+        if [ -f "$git_dir/rebase-apply/head-name" ]; then
+            git_rebase_head="$(cat "$git_dir/rebase-apply/head-name")"
+        elif [ -f "$git_dir/rebase-merge/head-name" ]; then
+            git_rebase_head="$(cat "$git_dir/rebase-merge/head-name")"
+        else
+            git_rebase_head="!!"
+        fi
+        if [[ "$git_rebase_head" =~ .*/([^/]+) ]]; then
+            git_rebase_head="${BASH_REMATCH[1]}"
+        fi
+        echo "$GS_SYM_REBASE$(gs_color "$GS_COLOR_REBASE" "$git_rebase_head")"
+    fi
+}
+
+# arguments
+# $1 - git base directory
+function rs_git_merge() {
+    local git_dir="$1"
+    if [ -f "$git_dir/MERGE_HEAD" ]; then
+        local git_merge_head="$(cat "$git_dir/MERGE_HEAD")"
+        local git_merge_branch="$(git branch --no-color --contains "$git_merge_head")"
+        local git_merge_name=''
+        if [ "$git_merge_branch" ]; then
+            # remove '*' and leading whitespace from branch name
+            git_merge_name="${git_merge_branch/\*/ }"
+            git_merge_name="${git_merge_name#"${git_merge_name%%[![:space:]]*}"}"
+        else
+            git_merge_name="${git_merge_head:0:8}"
+        fi
+        echo "$GS_SYM_MERGE$(gs_color "$GS_COLOR_MERGE" "$git_merge_name")"
+    fi
+}
+
 # combine local status into a string
 function gs_set_local_status() {
     if [ "$git_num_staged" -gt 0 ]; then
@@ -167,31 +206,9 @@ function gs_set_local_status() {
     fi
     local git_stashed=$(rs_git_stash)
     local git_backup_refs=$(rs_git_backup_refs)
-    if [ -d "$git_dir/rebase-apply" ] || [ -d "$git_dir/rebase-merge" ]; then
-        if [ -f "$git_dir/rebase-apply/head-name" ]; then
-            git_rebase_head="$(cat "$git_dir/rebase-apply/head-name")"
-        elif [ -f "$git_dir/rebase-merge/head-name" ]; then
-            git_rebase_head="$(cat "$git_dir/rebase-merge/head-name")"
-        else
-            git_rebase_head="!!"
-        fi
-        if [[ "$git_rebase_head" =~ .*/([^/]+) ]]; then
-            git_rebase_head="${BASH_REMATCH[1]}"
-        fi
-        git_rebase="$GS_SYM_REBASE$(gs_color "$GS_COLOR_REBASE" "$git_rebase_head")"
-    fi
-    if [ -f "$git_dir/MERGE_HEAD" ]; then
-        git_merge_head="$(cat "$git_dir/MERGE_HEAD")"
-        git_merge_branch="$(git branch --no-color --contains "$git_merge_head")"
-        if [ "$git_merge_branch" ]; then
-            # remove '*' and whitespace from branch name
-            git_merge_name="${git_merge_branch/\*/ }"
-            git_merge_name="${git_merge_name#"${git_merge_name%%[![:space:]]*}"}"
-        else
-            git_merge_name="${git_merge_head:0:8}"
-        fi
-        git_merge="$GS_SYM_MERGE$(gs_color "$GS_COLOR_MERGE" "$git_merge_name")"
-    fi
+    local git_rebase=$(rs_git_rebase "$git_dir")
+    local git_merge=$(rs_git_merge "$git_dir")
+
     local git_stat_arr=($git_rebase $git_merge $git_conflict $git_backup_refs $git_staged $git_modified $git_stashed $git_untracked)
     local git_local_status=$(gs_join ' ' "${git_stat_arr[@]}")
     if [[ ! -z "${git_local_status// }" ]]; then
