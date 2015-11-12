@@ -192,11 +192,12 @@ function gs_set_local_status() {
         fi
         git_merge="$GS_SYM_MERGE$(gs_color "$GS_COLOR_MERGE" "$git_merge_name")"
     fi
-    if [ "$git_staged" ] || [ "$git_modified" ] || [ "$git_untracked" ] || [ "$git_conflict" ] || [ "$git_stashed" ] || [ "$git_rebase" ] || [ "$git_merge" ] || [ "$git_backup_refs" ]; then
-        git_stat_arr=($git_rebase $git_merge $git_conflict $git_backup_refs $git_staged $git_modified $git_stashed $git_untracked)
-        git_local_status=$(gs_join ' ' "${git_stat_arr[@]}")
+    local git_stat_arr=($git_rebase $git_merge $git_conflict $git_backup_refs $git_staged $git_modified $git_stashed $git_untracked)
+    local git_local_status=$(gs_join ' ' "${git_stat_arr[@]}")
+    if [[ ! -z "${git_local_status// }" ]]; then
+        echo "$git_local_status"
     else
-        git_local_status=$(gs_color "$GS_COLOR_LOCAL_OK" "$GS_SYM_LOCAL_OK")
+        echo "$(gs_color "$GS_COLOR_LOCAL_OK" "$GS_SYM_LOCAL_OK")"
     fi
 }
 
@@ -301,7 +302,7 @@ function repo_status() {
         gs_remote_update_async
         gs_count_local_status
         gs_set_remote_status "$rs_git_branch_info"
-        gs_set_local_status
+        local git_local_status=$(gs_set_local_status)
         rs_status+="  $gs_git$gs_head $git_remote_status / $git_local_status"
     fi
     # svn
