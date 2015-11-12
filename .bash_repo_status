@@ -281,17 +281,17 @@ function rs_git_remote_status() {
         echo "$git_remote_status"
     else
         # remote tracking branch
-        local git_rev_list_origin=$(git rev-list --count --left-right ${git_head}..${git_origin} 2>/dev/null)
+        local git_rev_list_origin=$(git rev-list --count --left-right ${git_head}...${git_origin} 2>/dev/null)
         if [ "$?" -eq 0 ]; then
             local git_origin_arr=($git_rev_list_origin) # will split into array because it's 2 numbers separated by spaces
             if [ "${git_origin_arr[0]}" -gt 0 ]; then
                 local git_ahead="$(gs_color "$GS_COLOR_NEED_PUSH" "${git_origin_arr[0]}")$GS_SYM_NEED_PUSH"
             fi
             if [ "${git_origin_arr[1]}" -gt 0 ]; then
-                local git_behind="$(gs_color "$GS_COLOR_NEED_PULL" "${git_origin_arr[1]}")$GS_SYM_NEED_PUSH"
+                local git_behind="$(gs_color "$GS_COLOR_NEED_PULL" "${git_origin_arr[1]}")$GS_SYM_NEED_PULL"
             fi
         fi
-        git_rev_list_upstream=$(git rev-list --count --left-right ${git_origin}..${git_upstream} 2>/dev/null)
+        git_rev_list_upstream=$(git rev-list --count --left-right ${git_origin}...${git_upstream} 2>/dev/null)
         if [ "$?" -eq 0 ]; then
             local git_upstream_arr=($git_rev_list_upstream) # will split into array because it's 2 numbers separated by spaces
             if [ "${git_upstream_arr[0]}" -gt 0 ]; then
@@ -324,7 +324,7 @@ function rs_git_remote_status() {
 function repo_status() {
     rs_status=''
     # git
-    local git_status_porcelain=$(git status --porcelain --untracked-files=all --branch 2>/dev/null)
+    git_status_porcelain=$(git status --porcelain --untracked-files=all --branch 2>/dev/null)
     if [ "$?" -eq 0 ]; then
         gs_remote_update_async
         local gs_git=$(gs_color "$GS_COLOR_GIT" "$GS_SYM_GIT")
