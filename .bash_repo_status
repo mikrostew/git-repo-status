@@ -96,29 +96,6 @@ function rs_parse_branch_line() {
     done <<< "$1"
 }
 
-# count occurrences of staged/modified/conflict/untracked
-function gs_count_local_status() {
-    git_num_staged=0
-    git_num_modified=0
-    git_num_conflict=0
-    git_num_untracked=0
-    local IFS=''
-    while read -r line; do
-        XY=${line:0:2}
-        case "$XY" in
-            U?)     ((git_num_conflict++)) ;;  # unmerged
-            ?U)     ((git_num_conflict++)) ;;  # unmerged
-            DD)     ((git_num_conflict++)) ;;  # unmerged (both deleted)
-            AA)     ((git_num_conflict++)) ;;  # unmerged (both added)
-            ?[MDT]) ((git_num_modified++)) ;;  # modified/deleted/typechange in working tree
-            \?\?)   ((git_num_untracked++)) ;; # untracked in index and working tree
-        esac
-        case "$XY" in
-            [MARCD]?) ((git_num_staged++)) ;; # modified/added/renamed/copied/deleted in index
-        esac
-    done <<< "$git_status_porcelain"
-}
-
 function rs_git_stash() {
     local git_stash_list=$(git stash list)
     if [ "$git_stash_list" ]; then
@@ -191,19 +168,43 @@ function rs_git_merge() {
 }
 
 # combine local status into a string
-function gs_set_local_status() {
+# arguments:
+# $1 - git base directory
+function rs_git_local_status() {
+    local git_dir="$1"
+    local git_num_staged=0
+    local git_num_modified=0
+    local git_num_conflict=0
+    local git_num_untracked=0
+    local IFS=''
+    while read -r line; do
+        XY=${line:0:2}
+        case "$XY" in
+            U?)     ((git_num_conflict++)) ;;  # unmerged
+            ?U)     ((git_num_conflict++)) ;;  # unmerged
+            DD)     ((git_num_conflict++)) ;;  # unmerged (both deleted)
+            AA)     ((git_num_conflict++)) ;;  # unmerged (both added)
+            ?[MDT]) ((git_num_modified++)) ;;  # modified/deleted/typechange in working tree
+            \?\?)   ((git_num_untracked++)) ;; # untracked in index and working tree
+        esac
+        case "$XY" in
+            [MARCD]?) ((git_num_staged++)) ;; # modified/added/renamed/copied/deleted in index
+        esac
+    done <<< "$git_status_porcelain"
+
     if [ "$git_num_staged" -gt 0 ]; then
-        git_staged="$(gs_color "$GS_COLOR_STAGED" "$git_num_staged")$GS_SYM_STAGED"
+        local git_staged="$(gs_color "$GS_COLOR_STAGED" "$git_num_staged")$GS_SYM_STAGED"
     fi
     if [ "$git_num_modified" -gt 0 ]; then
-        git_modified="$(gs_color "$GS_COLOR_MODIFIED" "$git_num_modified")$GS_SYM_MODIFIED"
+        local git_modified="$(gs_color "$GS_COLOR_MODIFIED" "$git_num_modified")$GS_SYM_MODIFIED"
     fi
     if [ "$git_num_untracked" -gt 0 ]; then
-        git_untracked="$(gs_color "$GS_COLOR_UNTRACKED" "$git_num_untracked")$GS_SYM_UNTRACKED"
+        local git_untracked="$(gs_color "$GS_COLOR_UNTRACKED" "$git_num_untracked")$GS_SYM_UNTRACKED"
     fi
     if [ "$git_num_conflict" -gt 0 ]; then
-        git_conflict="$(gs_color "$GS_COLOR_CONFLICT" "$git_num_conflict")$GS_SYM_CONFLICT"
+        local git_conflict="$(gs_color "$GS_COLOR_CONFLICT" "$git_num_conflict")$GS_SYM_CONFLICT"
     fi
+
     local git_stashed=$(rs_git_stash)
     local git_backup_refs=$(rs_git_backup_refs)
     local git_rebase=$(rs_git_rebase "$git_dir")
@@ -314,12 +315,11 @@ function repo_status() {
     git_status_porcelain=$(git status --porcelain --untracked-files=all --branch 2>/dev/null)
     if [ "$?" -eq 0 ]; then
         local gs_git=$(gs_color "$GS_COLOR_GIT" "$GS_SYM_GIT")
-        git_dir=$(git rev-parse --git-dir)
-        local rs_git_branch_info=$(rs_parse_branch_line "$git_status_porcelain")
+        local git_dir=$(git rev-parse --git-dir)
+        local git_branch_info=$(rs_parse_branch_line "$git_status_porcelain")
         gs_remote_update_async
-        gs_count_local_status
-        gs_set_remote_status "$rs_git_branch_info"
-        local git_local_status=$(gs_set_local_status)
+        gs_set_remote_status "$git_branch_info"
+        local git_local_status=$(rs_git_local_status "$git_dir")
         rs_status+="  $gs_git$gs_head $git_remote_status / $git_local_status"
     fi
     # svn
