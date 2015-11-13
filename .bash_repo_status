@@ -88,6 +88,16 @@ function gs_join() {
     echo "$*"
 }
 
+# arguments:
+# $1 - counter
+# $2 - color
+# $3 - trailing symbol
+function rs_format_count() {
+    if [ "$1" -gt 0 ]; then
+        echo "$(gs_color "$2" "$1")$3"
+    fi
+}
+
 # parse the branch info from `git status --porcelain --branch`
 function rs_parse_branch_line() {
     # TODO: simplifiy - this seems overcomplicated, maybe just use a regex?
@@ -124,11 +134,7 @@ function rs_git_backup_refs() {
                 ((git_num_orig_refs++))
             fi
         done <<< "$git_show_ref"
-        if [ "$git_num_orig_refs" -gt 0 ]; then
-            echo "$(gs_color "$GS_COLOR_BACKUP_REF" "$git_num_orig_refs")$GS_SYM_BACKUP_REF"
-        else
-            echo ''
-        fi
+        echo $(rs_format_count "$git_num_orig_refs" "$GS_COLOR_BACKUP_REF" "$GS_SYM_BACKUP_REF")
     fi
 }
 
@@ -207,18 +213,10 @@ function rs_git_local_status() {
         esac
     done <<< "$2"
 
-    if [ "$git_num_staged" -gt 0 ]; then
-        local git_staged="$(gs_color "$GS_COLOR_STAGED" "$git_num_staged")$GS_SYM_STAGED"
-    fi
-    if [ "$git_num_modified" -gt 0 ]; then
-        local git_modified="$(gs_color "$GS_COLOR_MODIFIED" "$git_num_modified")$GS_SYM_MODIFIED"
-    fi
-    if [ "$git_num_untracked" -gt 0 ]; then
-        local git_untracked="$(gs_color "$GS_COLOR_UNTRACKED" "$git_num_untracked")$GS_SYM_UNTRACKED"
-    fi
-    if [ "$git_num_conflict" -gt 0 ]; then
-        local git_conflict="$(gs_color "$GS_COLOR_CONFLICT" "$git_num_conflict")$GS_SYM_CONFLICT"
-    fi
+    local git_staged=$(rs_format_count "$git_num_staged" "$GS_COLOR_STAGED" "$GS_SYM_STAGED")
+    local git_modified=$(rs_format_count "$git_num_modified" "$GS_COLOR_MODIFIED" "$GS_SYM_MODIFIED")
+    local git_untracked=$(rs_format_count "$git_num_untracked" "$GS_COLOR_UNTRACKED" "$GS_SYM_UNTRACKED")
+    local git_conflict=$(rs_format_count "$git_num_conflict" "$GS_COLOR_CONFLICT" "$GS_SYM_CONFLICT")
 
     local git_stashed=$(rs_git_stash)
     local git_backup_refs=$(rs_git_backup_refs)
@@ -301,22 +299,14 @@ function rs_git_remote_status() {
         local git_rev_list_origin=$(git rev-list --count --left-right ${git_head}...${git_origin} 2>/dev/null)
         if [ "$?" -eq 0 ] && [ -n "$git_rev_list_origin" ]; then
             local git_origin_arr=($git_rev_list_origin) # will split into array because it's 2 numbers separated by spaces
-            if [ "${git_origin_arr[0]}" -gt 0 ]; then
-                local git_ahead="$(gs_color "$GS_COLOR_NEED_PUSH" "${git_origin_arr[0]}")$GS_SYM_NEED_PUSH"
-            fi
-            if [ "${git_origin_arr[1]}" -gt 0 ]; then
-                local git_behind="$(gs_color "$GS_COLOR_NEED_PULL" "${git_origin_arr[1]}")$GS_SYM_NEED_PULL"
-            fi
+            local git_ahead=$(rs_format_count "${git_origin_arr[0]}" "$GS_COLOR_NEED_PUSH" "$GS_SYM_NEED_PUSH")
+            local git_behind=$(rs_format_count "${git_origin_arr[1]}" "$GS_COLOR_NEED_PULL" "$GS_SYM_NEED_PULL")
         fi
         git_rev_list_upstream=$(git rev-list --count --left-right ${git_origin}...${git_upstream} 2>/dev/null)
         if [ "$?" -eq 0 ]; then
             local git_upstream_arr=($git_rev_list_upstream) # will split into array because it's 2 numbers separated by spaces
-            if [ "${git_upstream_arr[0]}" -gt 0 ]; then
-                local git_fork_ahead=$(gs_color "$GS_COLOR_FORK_AHEAD" "${git_upstream_arr[0]}")
-            fi
-            if [ "${git_upstream_arr[1]}" -gt 0 ]; then
-                local git_fork_behind=$(gs_color "$GS_COLOR_FORK_BEHIND" "${git_upstream_arr[1]}")
-            fi
+            local git_fork_ahead=$(rs_format_count "${git_upstream_arr[0]}" "$GS_COLOR_FORK_AHEAD" "")
+            local git_fork_behind=$(rs_format_count "${git_upstream_arr[1]}" "$GS_COLOR_FORK_BEHIND" "")
             if [ "$git_fork_ahead" ] || [ "$git_fork_behind" ]; then
                 local git_fork_status="${git_fork_ahead}$GS_SYM_FORK${git_fork_behind}"
             fi
