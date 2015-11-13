@@ -361,13 +361,60 @@ function repo_status() {
             svn_revision="$RS_SYM_SVN_REV$(gs_color "$RS_COLOR_SVN_REV" "${BASH_REMATCH[1]}")"
         fi
         svn_status=$(svn status 2>/dev/null)
-        # TODO - more detailed status (see `svn status --help` for the codes)
-        if [[ "$svn_status" =~ [?!AM]([[:space:]]+[^$'\n']+) ]]; then
-            svn_dirty=$(gs_color "$RS_COLOR_SVN_DIRTY" "$RS_SYM_SVN_DIRTY")
-        else
-            svn_dirty=$(gs_color "$RS_COLOR_SVN_OK" "✓")
-        fi
-        rs_status+="  $rs_svn$svn_path$svn_revision $svn_dirty"
+
+        svn_num_conflicted=0
+        svn_num_added=0
+        svn_num_modified=0
+        svn_num_deleted=0
+        svn_num_locked=0
+        svn_num_history=0
+        svn_num_untracked=0
+        svn_num_external=0
+        svn_num_switched=0
+        svn_num_ignored=0
+        svn_num_missing=0
+        svn_num_obstructed=0
+        while IFS='' read -r line; do
+            svn_stat_columns=${line:0:7}
+            case "$svn_stat_columns" in
+                #  see `svn status --help` for details on these codes
+                C??????)  ((svn_num_conflicted++)) ;; # item conflicted
+                ?C?????)  ((svn_num_conflicted++)) ;; # file/directory properties conflicted
+                ??????C)  ((svn_num_conflicted++)) ;; # tree conflict
+                A??????)  ((svn_num_added++)) ;; # item added
+                [MR]??????)  ((svn_num_modified++)) ;; # item modified/replaced
+                ?M?????)  ((svn_num_modified++)) ;; # file/directory properties modified
+                D??????)  ((svn_num_deleted++)) ;; # item deleted
+                \???????)  ((svn_num_untracked++)) ;; # item untracked
+                I??????)  ((svn_num_ignored++)) ;; # item ignored
+                ??L????)  ((svn_num_locked++)) ;; # working copy directory locked
+                ?????K?)  ((svn_num_locked++)) ;; # repository lock token present
+                ???+???)  ((svn_num_history++)) ;; # commit will contain addition-with-history
+                X??????)  ((svn_num_external++)) ;; # unversioned directory created by externals
+                ????X??)  ((svn_num_external++)) ;; # versioned file created by externals
+                ????S??)  ((svn_num_switched++)) ;; # item has a switched URL
+                \!??????)  ((svn_num_missing++)) ;; # item missing (removed by non-svn command)
+                ~??????)  ((svn_num_obstructed++)) ;; # item obstructed by some item of a different kind
+            esac
+        done <<< "$svn_status"
+
+        local svn_conflicted=$(rs_format_count "$svn_num_conflicted" "$COLOR_RED" "<conflicted>")
+        local svn_added=$(rs_format_count "$svn_num_added" "$COLOR_RED" "<added>")
+        local svn_modified=$(rs_format_count "$svn_num_modified" "$COLOR_RED" "<modified>")
+        local svn_deleted=$(rs_format_count "$svn_num_deleted" "$COLOR_RED" "<deleted>")
+        local svn_locked=$(rs_format_count "$svn_num_locked" "$COLOR_RED" "<locked>")
+        local svn_history=$(rs_format_count "$svn_num_history" "$COLOR_RED" "<add-history>")
+        local svn_untracked=$(rs_format_count "$svn_num_untracked" "$COLOR_RED" "<untracked>")
+        local svn_external=$(rs_format_count "$svn_num_external" "$COLOR_RED" "<external>")
+        local svn_switched=$(rs_format_count "$svn_num_switched" "$COLOR_RED" "<switched>")
+        local svn_ignored=$(rs_format_count "$svn_num_ignored" "$COLOR_RED" "<ignored>")
+        local svn_missing=$(rs_format_count "$svn_num_missing" "$COLOR_RED" "<missing>")
+        local svn_obstructed=$(rs_format_count "$svn_num_obstructed" "$COLOR_RED" "<obstructed>")
+
+        local svn_stat_arr=($svn_conflicted $svn_added $svn_modified $svn_deleted $svn_locked $svn_history $svn_untracked $svn_external $svn_switched $svn_ignored $svn_missing $svn_obstructed)
+        local svn_local_status=$(gs_join ' ' "${svn_stat_arr[@]}")
+
+        rs_status+="  $rs_svn$svn_path$svn_revision $svn_local_status"
     elif [ "$?" -eq 1 ] && [[ "$rs_svn_info" =~ svn:\ E155021 ]]; then
         if [[ "$rs_svn_info" =~ \(format\ ([0-9]+)\) ]]; then
             svn_repo_format="${BASH_REMATCH[1]}"
