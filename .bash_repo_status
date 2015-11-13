@@ -38,6 +38,7 @@ RS_COLOR_SVN_PATH="$COLOR_LIGHT_BLUE"
 RS_COLOR_SVN_REV="$COLOR_LIGHT_BLUE"
 RS_COLOR_SVN_OK="$COLOR_GREEN"
 RS_COLOR_SVN_DIRTY="$COLOR_RED"
+RS_COLOR_SVN_ERROR="$COLOR_RED"
 
 # functions to set colors
 function gs_color()  { echo "$1$2$COLOR_RESET"; }
@@ -71,6 +72,7 @@ RS_SYM_SVN_REPO_PATH='|'
 RS_SYM_SVN_UNKNOWN_URL='?'
 RS_SYM_SVN_REV='@'
 RS_SYM_SVN_DIRTY='dirty'
+RS_SYM_SVN_ERROR='!'
 
 # asynchronously fetch updates for all remotes (does not run if already running)
 function gs_remote_update_async() {
@@ -354,9 +356,9 @@ function repo_status() {
         rs_status+="  $gs_git$git_head $git_remote_status / $git_local_status"
     fi
     # svn
-    rs_svn_info=$(svn info 2>/dev/null)
+    rs_svn=$(gs_color "$RS_COLOR_SVN" "$RS_SYM_SVN")
+    rs_svn_info=$(svn info 2>&1)
     if [ "$?" -eq 0 ]; then
-        rs_svn=$(gs_color "$RS_COLOR_SVN" "$RS_SYM_SVN")
         # TODO: split URI and path with something like '/'
         if [[ "$rs_svn_info" =~ URL:\ ([^$'\n']+) ]]; then
             svn_url="${BASH_REMATCH[1]}"
@@ -376,6 +378,15 @@ function repo_status() {
             svn_dirty=$(gs_color "$RS_COLOR_SVN_OK" "✓")
         fi
         rs_status+="  $rs_svn$svn_path$svn_revision $svn_dirty"
+    elif [ "$?" -eq 1 ] && [[ "$rs_svn_info" =~ svn:\ E155021 ]]; then
+        if [[ "$rs_svn_info" =~ \(format\ ([0-9]+)\) ]]; then
+            svn_repo_format="${BASH_REMATCH[1]}"
+        else
+            svn_repo_format="?"
+        fi
+        svn_version=$(svn --version --quiet)
+        svn_error="$RS_SYM_SVN_ERROR$(gs_color "$RS_COLOR_SVN_ERROR" " client too old (client: $svn_version, repo format: $svn_repo_format)")"
+        rs_status+="  $rs_svn$svn_error"
     fi
     echo -e "$rs_status"
 }
