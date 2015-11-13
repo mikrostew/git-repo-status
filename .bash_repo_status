@@ -347,6 +347,62 @@ function rs_git_remote_status() {
     fi
 }
 
+function rs_svn_local_status() {
+    local svn_status=$(svn status 2>/dev/null)
+
+    local svn_num_conflicted=0
+    local svn_num_added=0
+    local svn_num_modified=0
+    local svn_num_deleted=0
+    local svn_num_locked=0
+    local svn_num_history=0
+    local svn_num_untracked=0
+    local svn_num_external=0
+    local svn_num_switched=0
+    local svn_num_ignored=0
+    local svn_num_missing=0
+    local svn_num_obstructed=0
+    while IFS='' read -r line; do
+        local svn_stat_columns=${line:0:7}
+        case "$svn_stat_columns" in
+            #  see `svn status --help` for details on these codes
+            C??????)  ((svn_num_conflicted++)) ;; # item conflicted
+            ?C?????)  ((svn_num_conflicted++)) ;; # file/directory properties conflicted
+            ??????C)  ((svn_num_conflicted++)) ;; # tree conflict
+            A??????)  ((svn_num_added++)) ;; # item added
+            [MR]??????)  ((svn_num_modified++)) ;; # item modified/replaced
+            ?M?????)  ((svn_num_modified++)) ;; # file/directory properties modified
+            D??????)  ((svn_num_deleted++)) ;; # item deleted
+            \???????)  ((svn_num_untracked++)) ;; # item untracked
+            I??????)  ((svn_num_ignored++)) ;; # item ignored
+            ??L????)  ((svn_num_locked++)) ;; # working copy directory locked
+            ?????K?)  ((svn_num_locked++)) ;; # repository lock token present
+            ???+???)  ((svn_num_history++)) ;; # commit will contain addition-with-history
+            X??????)  ((svn_num_external++)) ;; # unversioned directory created by externals
+            ????X??)  ((svn_num_external++)) ;; # versioned file created by externals
+            ????S??)  ((svn_num_switched++)) ;; # item has a switched URL
+            \!??????)  ((svn_num_missing++)) ;; # item missing (removed by non-svn command)
+            ~??????)  ((svn_num_obstructed++)) ;; # item obstructed by some item of a different kind
+        esac
+    done <<< "$svn_status"
+
+    local svn_conflicted=$(rs_format_count "$svn_num_conflicted" "$RS_COLOR_SVN_CONFLICTED" "$RS_SYM_SVN_CONFLICTED")
+    local svn_added=$(rs_format_count "$svn_num_added" "$RS_COLOR_SVN_ADDED" "$RS_SYM_SVN_ADDED")
+    local svn_modified=$(rs_format_count "$svn_num_modified" "$RS_COLOR_SVN_MODIFIED" "$RS_SYM_SVN_MODIFIED")
+    local svn_deleted=$(rs_format_count "$svn_num_deleted" "$RS_COLOR_SVN_DELETED" "$RS_SYM_SVN_DELETED")
+    local svn_locked=$(rs_format_count "$svn_num_locked" "$RS_COLOR_SVN_LOCKED" "$RS_SYM_SVN_LOCKED")
+    local svn_history=$(rs_format_count "$svn_num_history" "$RS_COLOR_SVN_ADD_HISTORY" "$RS_SYM_SVN_ADD_HISTORY")
+    local svn_untracked=$(rs_format_count "$svn_num_untracked" "$RS_COLOR_SVN_UNTRACKED" "$RS_SYM_SVN_UNTRACKED")
+    local svn_external=$(rs_format_count "$svn_num_external" "$RS_COLOR_SVN_EXTERNAL" "$RS_SYM_SVN_EXTERNAL")
+    local svn_switched=$(rs_format_count "$svn_num_switched" "$RS_COLOR_SVN_SWITCHED" "$RS_SYM_SVN_SWITCHED")
+    local svn_ignored=$(rs_format_count "$svn_num_ignored" "$RS_COLOR_SVN_IGNORED" "$RS_SYM_SVN_IGNORED")
+    local svn_missing=$(rs_format_count "$svn_num_missing" "$RS_COLOR_SVN_MISSING" "$RS_SYM_SVN_MISSING")
+    local svn_obstructed=$(rs_format_count "$svn_num_obstructed" "$RS_COLOR_SVN_OBSTRUCTED" "$RS_SYM_SVN_OBSTRUCTED")
+
+    local svn_stat_arr=($svn_conflicted $svn_added $svn_modified $svn_deleted $svn_locked $svn_history $svn_untracked $svn_external $svn_switched $svn_ignored $svn_missing $svn_obstructed)
+    echo "$(gs_join ' ' "${svn_stat_arr[@]}")"
+}
+
 # show info about what kind of repo we're in
 # some code and ideas from:
 # - http://zanshin.net/2012/03/09/wordy-nerdy-zsh-prompt/
@@ -384,59 +440,8 @@ function repo_status() {
         if [[ "$rs_svn_info" =~ Revision:\ ([0-9]+) ]]; then
             svn_revision="$RS_SYM_SVN_REV$(gs_color "$RS_COLOR_SVN_REV" "${BASH_REMATCH[1]}")"
         fi
-        svn_status=$(svn status 2>/dev/null)
 
-        svn_num_conflicted=0
-        svn_num_added=0
-        svn_num_modified=0
-        svn_num_deleted=0
-        svn_num_locked=0
-        svn_num_history=0
-        svn_num_untracked=0
-        svn_num_external=0
-        svn_num_switched=0
-        svn_num_ignored=0
-        svn_num_missing=0
-        svn_num_obstructed=0
-        while IFS='' read -r line; do
-            svn_stat_columns=${line:0:7}
-            case "$svn_stat_columns" in
-                #  see `svn status --help` for details on these codes
-                C??????)  ((svn_num_conflicted++)) ;; # item conflicted
-                ?C?????)  ((svn_num_conflicted++)) ;; # file/directory properties conflicted
-                ??????C)  ((svn_num_conflicted++)) ;; # tree conflict
-                A??????)  ((svn_num_added++)) ;; # item added
-                [MR]??????)  ((svn_num_modified++)) ;; # item modified/replaced
-                ?M?????)  ((svn_num_modified++)) ;; # file/directory properties modified
-                D??????)  ((svn_num_deleted++)) ;; # item deleted
-                \???????)  ((svn_num_untracked++)) ;; # item untracked
-                I??????)  ((svn_num_ignored++)) ;; # item ignored
-                ??L????)  ((svn_num_locked++)) ;; # working copy directory locked
-                ?????K?)  ((svn_num_locked++)) ;; # repository lock token present
-                ???+???)  ((svn_num_history++)) ;; # commit will contain addition-with-history
-                X??????)  ((svn_num_external++)) ;; # unversioned directory created by externals
-                ????X??)  ((svn_num_external++)) ;; # versioned file created by externals
-                ????S??)  ((svn_num_switched++)) ;; # item has a switched URL
-                \!??????)  ((svn_num_missing++)) ;; # item missing (removed by non-svn command)
-                ~??????)  ((svn_num_obstructed++)) ;; # item obstructed by some item of a different kind
-            esac
-        done <<< "$svn_status"
-
-        local svn_conflicted=$(rs_format_count "$svn_num_conflicted" "$RS_COLOR_SVN_CONFLICTED" "$RS_SYM_SVN_CONFLICTED")
-        local svn_added=$(rs_format_count "$svn_num_added" "$RS_COLOR_SVN_ADDED" "$RS_SYM_SVN_ADDED")
-        local svn_modified=$(rs_format_count "$svn_num_modified" "$RS_COLOR_SVN_MODIFIED" "$RS_SYM_SVN_MODIFIED")
-        local svn_deleted=$(rs_format_count "$svn_num_deleted" "$RS_COLOR_SVN_DELETED" "$RS_SYM_SVN_DELETED")
-        local svn_locked=$(rs_format_count "$svn_num_locked" "$RS_COLOR_SVN_LOCKED" "$RS_SYM_SVN_LOCKED")
-        local svn_history=$(rs_format_count "$svn_num_history" "$RS_COLOR_SVN_ADD_HISTORY" "$RS_SYM_SVN_ADD_HISTORY")
-        local svn_untracked=$(rs_format_count "$svn_num_untracked" "$RS_COLOR_SVN_UNTRACKED" "$RS_SYM_SVN_UNTRACKED")
-        local svn_external=$(rs_format_count "$svn_num_external" "$RS_COLOR_SVN_EXTERNAL" "$RS_SYM_SVN_EXTERNAL")
-        local svn_switched=$(rs_format_count "$svn_num_switched" "$RS_COLOR_SVN_SWITCHED" "$RS_SYM_SVN_SWITCHED")
-        local svn_ignored=$(rs_format_count "$svn_num_ignored" "$RS_COLOR_SVN_IGNORED" "$RS_SYM_SVN_IGNORED")
-        local svn_missing=$(rs_format_count "$svn_num_missing" "$RS_COLOR_SVN_MISSING" "$RS_SYM_SVN_MISSING")
-        local svn_obstructed=$(rs_format_count "$svn_num_obstructed" "$RS_COLOR_SVN_OBSTRUCTED" "$RS_SYM_SVN_OBSTRUCTED")
-
-        local svn_stat_arr=($svn_conflicted $svn_added $svn_modified $svn_deleted $svn_locked $svn_history $svn_untracked $svn_external $svn_switched $svn_ignored $svn_missing $svn_obstructed)
-        local svn_local_status=$(gs_join ' ' "${svn_stat_arr[@]}")
+        local svn_local_status=$(rs_svn_local_status)
 
         rs_status+="  $rs_svn$svn_path$svn_revision $svn_local_status"
     elif [ "$?" -eq 1 ] && [[ "$rs_svn_info" =~ svn:\ E155021 ]]; then
