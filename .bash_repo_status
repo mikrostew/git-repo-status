@@ -273,7 +273,7 @@ function rs_git_remote_status() {
         fi
         # figure out how many commits exist on this branch that are not in the remotes
         local git_local_commits=$(git rev-list --count HEAD ${git_excludes} 2>/dev/null)
-        if [ "$?" -eq 0 ] && [ "$git_local_commits" -gt 0 ]; then
+        if [ -n "$git_local_commits" ] && [ "$git_local_commits" -gt 0 ]; then
             local git_remote_status="$(gs_color "$GS_COLOR_NEED_PUSH_UNTRACKED" "$git_local_commits")$GS_SYM_NEED_PUSH_UNTRACKED"
         else
             local git_remote_status=$(gs_color "$GS_COLOR_NO_REMOTE" "$GS_SYM_NO_REMOTE")
