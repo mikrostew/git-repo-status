@@ -85,18 +85,18 @@ RS_SYM_SVN_UNKNOWN_URL='?'
 RS_SYM_SVN_REV='@'
 RS_SYM_SVN_ERROR='!'
 # TODO
-RS_SYM_SVN_CONFLICTED="<conflicted>"
-RS_SYM_SVN_ADDED="<added>"
-RS_SYM_SVN_MODIFIED="<modified>"
-RS_SYM_SVN_DELETED="<deleted>"
-RS_SYM_SVN_LOCKED="<locked>"
-RS_SYM_SVN_ADD_HISTORY="<add-history>"
-RS_SYM_SVN_UNTRACKED="<untracked>"
-RS_SYM_SVN_EXTERNAL="<external>"
-RS_SYM_SVN_SWITCHED="<switched>"
-RS_SYM_SVN_IGNORED="<ignored>"
-RS_SYM_SVN_MISSING="<missing>"
-RS_SYM_SVN_OBSTRUCTED="<obstructed>"
+RS_SYM_SVN_CONFLICTED="<conflicted>" #!
+RS_SYM_SVN_ADDED="<added>" #+
+RS_SYM_SVN_MODIFIED="<modified>" #*
+RS_SYM_SVN_DELETED="<deleted>" #x
+RS_SYM_SVN_LOCKED="<locked>" #lck or ð
+RS_SYM_SVN_ADD_HISTORY="<add-history>" # +h
+RS_SYM_SVN_UNTRACKED="<untracked>" #?
+RS_SYM_SVN_EXTERNAL="<external>" #ext
+RS_SYM_SVN_SWITCHED="<switched>" #sw
+RS_SYM_SVN_IGNORED="<ignored>" #i
+RS_SYM_SVN_MISSING="<missing>" #mis
+RS_SYM_SVN_OBSTRUCTED="<obstructed>" #obs
 
 # asynchronously fetch updates for all remotes (does not run if already running)
 function gs_remote_update_async() {
@@ -444,15 +444,31 @@ function repo_status() {
         local svn_local_status=$(rs_svn_local_status)
 
         rs_status+="  $rs_svn$svn_path$svn_revision $svn_local_status"
-    elif [ "$?" -eq 1 ] && [[ "$rs_svn_info" =~ svn:\ E155021 ]]; then
-        if [[ "$rs_svn_info" =~ \(format\ ([0-9]+)\) ]]; then
-            svn_repo_format="${BASH_REMATCH[1]}"
-        else
-            svn_repo_format="?"
+    elif [ "$?" -eq 1 ]; then
+        # TODO: break these into an error function
+        if [[ "$rs_svn_info" =~ svn:\ E155021 ]]; then
+            if [[ "$rs_svn_info" =~ \(format\ ([0-9]+)\) ]]; then
+                svn_repo_format="${BASH_REMATCH[1]}"
+            else
+                svn_repo_format="?"
+            fi
+            svn_version=$(svn --version --quiet)
+            svn_error="$RS_SYM_SVN_ERROR$(gs_color "$RS_COLOR_SVN_ERROR" " client too old (client: $svn_version, repo format: $svn_repo_format)")"
+            rs_status+="  $rs_svn$svn_error"
+        elif [[ "$rs_svn_info" =~ svn:\ E155036 ]]; then
+            if [[ "$rs_svn_info" =~ \(format\ ([0-9]+) ]]; then
+                svn_repo_format="${BASH_REMATCH[1]}"
+            else
+                svn_repo_format="?"
+            fi
+            svn_version=$(svn --version --quiet)
+            svn_error="$RS_SYM_SVN_ERROR$(gs_color "$RS_COLOR_SVN_ERROR" " working copy too old (client: $svn_version, repo format: $svn_repo_format)")"
+            rs_status+="  $rs_svn$svn_error"
+        #elif [[ "$rs_svn_info" =~ svn:\ (E[0-9]+) ]]; then
+        #    svn_error_code="${BASH_REMATCH[1]}"
+        #    svn_error="$RS_SYM_SVN_ERROR$(gs_color "$RS_COLOR_SVN_ERROR" " unknown svn error: $svn_error_code")"
+        #    rs_status+="  $rs_svn$svn_error"
         fi
-        svn_version=$(svn --version --quiet)
-        svn_error="$RS_SYM_SVN_ERROR$(gs_color "$RS_COLOR_SVN_ERROR" " client too old (client: $svn_version, repo format: $svn_repo_format)")"
-        rs_status+="  $rs_svn$svn_error"
     fi
     echo -e "$rs_status"
 }
