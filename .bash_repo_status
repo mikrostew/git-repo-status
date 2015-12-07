@@ -24,6 +24,7 @@ GS_COLOR_NEED_PUSH_UNTRACKED="$COLOR_LIGHT_BLUE"
 GS_COLOR_CONFLICT="$COLOR_RED"
 GS_COLOR_REBASE="$COLOR_RED"
 GS_COLOR_MERGE="$COLOR_RED"
+GS_COLOR_BISECT="$COLOR_RED"
 GS_COLOR_STAGED="$COLOR_GREEN"
 GS_COLOR_LOCAL_OK="$COLOR_GREEN"
 GS_COLOR_UNTRACKED="$COLOR_LIGHT_GRAY"
@@ -61,6 +62,7 @@ GS_SYM_STASHED='ᕱ'
 GS_SYM_BACKUP_REF='⟲'
 GS_SYM_REBASE='ᚢ'
 GS_SYM_MERGE='⑃'
+GS_SYM_BISECT='÷'
 GS_SYM_LOCAL_OK='✓'
 
 # svn symbols
@@ -167,6 +169,16 @@ function rs_git_merge() {
     fi
 }
 
+# arguments
+# $1 - git base directory
+function rs_git_bisect() {
+    local git_dir="$1"
+    if [ -f "$git_dir/BISECT_START" ]; then
+        local git_bisect_start="$(cat "$git_dir/BISECT_START")"
+        echo "$GS_SYM_BISECT$(gs_color "$GS_COLOR_BISECT" "$git_bisect_start")"
+    fi
+}
+
 # combine local status into a string
 # arguments:
 # $1 - git base directory
@@ -210,8 +222,9 @@ function rs_git_local_status() {
     local git_backup_refs=$(rs_git_backup_refs)
     local git_rebase=$(rs_git_rebase "$git_dir")
     local git_merge=$(rs_git_merge "$git_dir")
+    local git_bisect=$(rs_git_bisect "$git_dir")
 
-    local git_stat_arr=($git_rebase $git_merge $git_conflict $git_backup_refs $git_staged $git_modified $git_stashed $git_untracked)
+    local git_stat_arr=($git_rebase $git_merge $git_bisect $git_conflict $git_backup_refs $git_staged $git_modified $git_stashed $git_untracked)
     local git_local_status=$(gs_join ' ' "${git_stat_arr[@]}")
     if [[ ! -z "${git_local_status// }" ]]; then
         echo "$git_local_status"
