@@ -252,6 +252,7 @@ function rs_git_head_origin() {
             echo "$GS_SYM_HASH$(gs_color "$GS_COLOR_HASH" "$git_commit_hash")"
         fi
     else
+        # "master...origin/master [gone]"
         # "master...origin/master [ahead 8]"
         # "master...origin/master [behind 12]"
         # "master...origin/master [ahead 1, behind 7]"
@@ -275,7 +276,7 @@ function rs_git_remote_status() {
         # local branch with no remote tracking
         local git_excludes=''
         local git_remote_branches=$(git branch -r)
-        if [ "$git_remote_branches" ]; then
+        if [ -n "$git_remote_branches" ]; then
             local git_remotes_arr=($git_remote_branches)
             local git_excludes_arr=()
             for r in "${git_remotes_arr[@]}"; do
@@ -296,7 +297,7 @@ function rs_git_remote_status() {
     else
         # remote tracking branch
         local git_rev_list_origin=$(git rev-list --count --left-right ${git_head}...${git_origin} 2>/dev/null)
-        if [ "$?" -eq 0 ]; then
+        if [ "$?" -eq 0 ] && [ -n "$git_rev_list_origin" ]; then
             local git_origin_arr=($git_rev_list_origin) # will split into array because it's 2 numbers separated by spaces
             if [ "${git_origin_arr[0]}" -gt 0 ]; then
                 local git_ahead="$(gs_color "$GS_COLOR_NEED_PUSH" "${git_origin_arr[0]}")$GS_SYM_NEED_PUSH"
