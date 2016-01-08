@@ -240,7 +240,8 @@ function rs_git_head_origin() {
     local git_head=''
     if [[ "$1" =~ Initial\ commit\ on\ (.+) ]]; then
         # "Initial commit on master" - local branch only
-        echo "$GS_SYM_BRANCH$(gs_color "$GS_COLOR_BRANCH" "${BASH_REMATCH[1]}")"
+        # "Initial commit on master...origin/master" - checked out empty repo
+        echo "$GS_SYM_BRANCH$(gs_color "$GS_COLOR_BRANCH" "${BASH_REMATCH[1]%%...*}")"
     elif [[ "$1" =~ no\ branch ]]; then
         # "HEAD (no branch)" - on tag or detached on commit
         local git_tag=$(git describe --exact-match 2>/dev/null)
