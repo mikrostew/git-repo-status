@@ -148,7 +148,7 @@ function rs_git_stash() {
 }
 
 function rs_git_backup_refs() {
-    local git_show_ref=$(git show-ref)
+    local git_show_ref=$(git show-ref original)
     if [ "$git_show_ref" ]; then
         local git_num_orig_refs=0
         # TODO: easier way to do this?
