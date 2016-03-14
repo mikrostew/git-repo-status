@@ -411,7 +411,7 @@ function rs_svn_local_status() {
 function repo_status() {
     rs_status=''
     # git
-    git_status_porcelain=$(git status --porcelain --untracked-files=all --branch 2>/dev/null)
+    git_status_porcelain=$(git status --porcelain --untracked-files=normal --branch 2>/dev/null)
     if [ "$?" -eq 0 ]; then
         gs_remote_update_async
         local gs_git=$(gs_color "$GS_COLOR_GIT" "$GS_SYM_GIT")
