@@ -295,7 +295,7 @@ function rs_git_head_origin() {
 # $1 - local git branch
 function rs_git_reviewid() {
     local git_reviewboard_id=$(git config --get branch.$1.reviewid)
-    if [ "$?" -eq 0 ]; then
+    if [ -n "$git_reviewboard_id" ]; then
         echo " $GS_SYM_REVIEWBOARD$(gs_color "$GS_COLOR_REVIEWID" "$git_reviewboard_id")"
     fi
 }
