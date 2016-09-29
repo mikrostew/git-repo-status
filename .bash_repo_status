@@ -12,6 +12,7 @@ COLOR_RESET='\033[0m'
 # git colors
 GS_COLOR_GIT="$COLOR_LIGHT_BLUE"
 GS_COLOR_BRANCH="$COLOR_LIGHT_BLUE"
+GS_COLOR_REVIEWID="$COLOR_LIGHT_BLUE"
 GS_COLOR_NO_REMOTE="$COLOR_LIGHT_BLUE"
 GS_COLOR_TAG="$COLOR_LIGHT_BLUE"
 GS_COLOR_HASH="$COLOR_LIGHT_BLUE"
@@ -291,6 +292,15 @@ function rs_git_head_origin() {
 
 # arguments:
 # $1 - local git branch
+function rs_git_reviewid() {
+    local git_reviewboard_id=$(git config --get branch.$1.reviewid)
+    if [ "$?" -eq 0 ]; then
+        echo " (rb$(gs_color "$GS_COLOR_REVIEWID" "$git_reviewboard_id"))"
+    fi
+}
+
+# arguments:
+# $1 - local git branch
 # $2 - origin branch that is tracking the local branch (if it exists)
 function rs_git_remote_status() {
     local git_head="$1"
@@ -421,9 +431,10 @@ function repo_status() {
         local git_head="${git_branch_arr[0]}"
         local git_head_nocolor="${git_branch_arr[1]}"
         local git_origin="${git_branch_arr[2]}"
+        local git_reviewid=$(rs_git_reviewid "$git_head_nocolor")
         local git_remote_status=$(rs_git_remote_status "$git_head_nocolor" "$git_origin")
         local git_local_status=$(rs_git_local_status "$git_dir" "$git_status_porcelain")
-        rs_status+="  $gs_git$git_head $git_remote_status / $git_local_status"
+        rs_status+="  $gs_git$git_head$git_reviewid $git_remote_status / $git_local_status"
     fi
     # svn
     rs_svn=$(gs_color "$RS_COLOR_SVN" "$RS_SYM_SVN")
