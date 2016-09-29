@@ -61,6 +61,7 @@ GS_SYM_GIT='git'
 GS_SYM_BRANCH='|'
 GS_SYM_TAG='»'
 GS_SYM_HASH='#'
+GS_SYM_REVIEWBOARD='r'
 GS_SYM_NO_REMOTE='-'
 GS_SYM_NEED_PUSH='⇧'
 GS_SYM_NEED_PULL='⇩'
@@ -295,7 +296,7 @@ function rs_git_head_origin() {
 function rs_git_reviewid() {
     local git_reviewboard_id=$(git config --get branch.$1.reviewid)
     if [ "$?" -eq 0 ]; then
-        echo " (rb$(gs_color "$GS_COLOR_REVIEWID" "$git_reviewboard_id"))"
+        echo " $GS_SYM_REVIEWBOARD$(gs_color "$GS_COLOR_REVIEWID" "$git_reviewboard_id")"
     fi
 }
 
