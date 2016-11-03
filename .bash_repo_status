@@ -428,6 +428,8 @@ function repo_status() {
         local gs_git=$(gs_color "$GS_COLOR_GIT" "$GS_SYM_GIT")
         local git_dir=$(git rev-parse --git-dir)
         local git_branch_info=$(rs_parse_branch_line "$git_status_porcelain")
+
+
         local git_branch_arr=( $(rs_git_head_origin "$git_branch_info") )
         local git_head="${git_branch_arr[0]}"
         local git_head_nocolor="${git_branch_arr[1]}"
@@ -438,50 +440,50 @@ function repo_status() {
         rs_status+="  $gs_git$git_head$git_reviewid $git_remote_status / $git_local_status"
     fi
     # svn
-    rs_svn=$(gs_color "$RS_COLOR_SVN" "$RS_SYM_SVN")
-    rs_svn_info=$(svn info 2>&1)
-    if [ "$?" -eq 0 ]; then
-        # TODO: split URI and path with something like '/'
-        if [[ "$rs_svn_info" =~ URL:\ ([^$'\n']+) ]]; then
-            svn_url="${BASH_REMATCH[1]}"
-            svn_protocol=$(expr "$svn_url" : '\([a-z]\+://\)') # match the svn:// or https:// from the start of the repo
-            svn_path="$RS_SYM_SVN_REPO_PATH$(gs_color "$RS_COLOR_SVN_PATH" "${svn_url#$svn_protocol}")"
-        else
-            svn_path=$(gs_color "$RS_COLOR_SVN_PATH" "$RS_SYM_SVN_UNKNOWN_URL")
-        fi
-        if [[ "$rs_svn_info" =~ Revision:\ ([0-9]+) ]]; then
-            svn_revision="$RS_SYM_SVN_REV$(gs_color "$RS_COLOR_SVN_REV" "${BASH_REMATCH[1]}")"
-        fi
+    # rs_svn=$(gs_color "$RS_COLOR_SVN" "$RS_SYM_SVN")
+    # rs_svn_info=$(svn info 2>&1)
+    # if [ "$?" -eq 0 ]; then
+    #     # TODO: split URI and path with something like '/'
+    #     if [[ "$rs_svn_info" =~ URL:\ ([^$'\n']+) ]]; then
+    #         svn_url="${BASH_REMATCH[1]}"
+    #         svn_protocol=$(expr "$svn_url" : '\([a-z]\+://\)') # match the svn:// or https:// from the start of the repo
+    #         svn_path="$RS_SYM_SVN_REPO_PATH$(gs_color "$RS_COLOR_SVN_PATH" "${svn_url#$svn_protocol}")"
+    #     else
+    #         svn_path=$(gs_color "$RS_COLOR_SVN_PATH" "$RS_SYM_SVN_UNKNOWN_URL")
+    #     fi
+    #     if [[ "$rs_svn_info" =~ Revision:\ ([0-9]+) ]]; then
+    #         svn_revision="$RS_SYM_SVN_REV$(gs_color "$RS_COLOR_SVN_REV" "${BASH_REMATCH[1]}")"
+    #     fi
 
-        local svn_local_status=$(rs_svn_local_status)
+    #     local svn_local_status=$(rs_svn_local_status)
 
-        rs_status+="  $rs_svn$svn_path$svn_revision $svn_local_status"
-    elif [ "$?" -eq 1 ]; then
-        # TODO: break these into an error function
-        if [[ "$rs_svn_info" =~ svn:\ E155021 ]]; then
-            if [[ "$rs_svn_info" =~ \(format\ ([0-9]+)\) ]]; then
-                svn_repo_format="${BASH_REMATCH[1]}"
-            else
-                svn_repo_format="?"
-            fi
-            svn_version=$(svn --version --quiet)
-            svn_error="$RS_SYM_SVN_ERROR$(gs_color "$RS_COLOR_SVN_ERROR" " client too old (client: $svn_version, repo format: $svn_repo_format)")"
-            rs_status+="  $rs_svn$svn_error"
-        elif [[ "$rs_svn_info" =~ svn:\ E155036 ]]; then
-            if [[ "$rs_svn_info" =~ \(format\ ([0-9]+) ]]; then
-                svn_repo_format="${BASH_REMATCH[1]}"
-            else
-                svn_repo_format="?"
-            fi
-            svn_version=$(svn --version --quiet)
-            svn_error="$RS_SYM_SVN_ERROR$(gs_color "$RS_COLOR_SVN_ERROR" " working copy too old (client: $svn_version, repo format: $svn_repo_format)")"
-            rs_status+="  $rs_svn$svn_error"
-        #elif [[ "$rs_svn_info" =~ svn:\ (E[0-9]+) ]]; then
-        #    svn_error_code="${BASH_REMATCH[1]}"
-        #    svn_error="$RS_SYM_SVN_ERROR$(gs_color "$RS_COLOR_SVN_ERROR" " unknown svn error: $svn_error_code")"
-        #    rs_status+="  $rs_svn$svn_error"
-        fi
-    fi
+    #     rs_status+="  $rs_svn$svn_path$svn_revision $svn_local_status"
+    # elif [ "$?" -eq 1 ]; then
+    #     # TODO: break these into an error function
+    #     if [[ "$rs_svn_info" =~ svn:\ E155021 ]]; then
+    #         if [[ "$rs_svn_info" =~ \(format\ ([0-9]+)\) ]]; then
+    #             svn_repo_format="${BASH_REMATCH[1]}"
+    #         else
+    #             svn_repo_format="?"
+    #         fi
+    #         svn_version=$(svn --version --quiet)
+    #         svn_error="$RS_SYM_SVN_ERROR$(gs_color "$RS_COLOR_SVN_ERROR" " client too old (client: $svn_version, repo format: $svn_repo_format)")"
+    #         rs_status+="  $rs_svn$svn_error"
+    #     elif [[ "$rs_svn_info" =~ svn:\ E155036 ]]; then
+    #         if [[ "$rs_svn_info" =~ \(format\ ([0-9]+) ]]; then
+    #             svn_repo_format="${BASH_REMATCH[1]}"
+    #         else
+    #             svn_repo_format="?"
+    #         fi
+    #         svn_version=$(svn --version --quiet)
+    #         svn_error="$RS_SYM_SVN_ERROR$(gs_color "$RS_COLOR_SVN_ERROR" " working copy too old (client: $svn_version, repo format: $svn_repo_format)")"
+    #         rs_status+="  $rs_svn$svn_error"
+    #     #elif [[ "$rs_svn_info" =~ svn:\ (E[0-9]+) ]]; then
+    #     #    svn_error_code="${BASH_REMATCH[1]}"
+    #     #    svn_error="$RS_SYM_SVN_ERROR$(gs_color "$RS_COLOR_SVN_ERROR" " unknown svn error: $svn_error_code")"
+    #     #    rs_status+="  $rs_svn$svn_error"
+    #     fi
+    # fi
     echo -e "$rs_status"
 }
 
