@@ -428,8 +428,6 @@ function repo_status() {
         local gs_git=$(gs_color "$GS_COLOR_GIT" "$GS_SYM_GIT")
         local git_dir=$(git rev-parse --git-dir)
         local git_branch_info=$(rs_parse_branch_line "$git_status_porcelain")
-
-
         local git_branch_arr=( $(rs_git_head_origin "$git_branch_info") )
         local git_head="${git_branch_arr[0]}"
         local git_head_nocolor="${git_branch_arr[1]}"
