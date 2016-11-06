@@ -53,9 +53,6 @@ RS_COLOR_SVN_IGNORED="$COLOR_RED"
 RS_COLOR_SVN_MISSING="$COLOR_RED"
 RS_COLOR_SVN_OBSTRUCTED="$COLOR_RED"
 
-# functions to set colors
-function gs_color()  { echo "$1$2$COLOR_RESET"; }
-
 # git symbols
 GS_SYM_GIT='git'
 GS_SYM_BRANCH='|'
@@ -100,6 +97,14 @@ RS_SYM_SVN_IGNORED="<ignored>" #i
 RS_SYM_SVN_MISSING="<missing>" #mis
 RS_SYM_SVN_OBSTRUCTED="<obstructed>" #obs
 
+# function to set colors
+# argument(s)
+# $1 - variable to write
+# $2 - color esc sequence
+# $3 - string to color
+# function gs_color()  { echo "$1$2$COLOR_RESET"; }
+function gs_color()  { printf -v "$1" "$2$3$COLOR_RESET"; }
+
 # asynchronously fetch updates for all remotes (does not run if already running)
 function gs_remote_update_async() {
     if [[ ! $(ps) =~ git\ remote\ update ]]; then
@@ -107,35 +112,49 @@ function gs_remote_update_async() {
     fi
 }
 
-# join elements of an array
-function gs_join() {
-    local IFS="$1"
-    shift
-    echo "$*"
+# join elements of an array with " " (space) character
+# arguments:
+# $1 - return variable name
+# $2 - array elements to join
+function gs_join_by_space() {
+    local varname="$1"
+    local first_element="$2"
+    shift 2
+    printf -v "$varname" "%s" "$first_element${@/#/ }"
 }
 
 # arguments:
-# $1 - counter
-# $2 - color
-# $3 - trailing symbol
+# $1 - return variable name
+# $2 - counter
+# $3 - color
+# $4 - trailing symbol
+# TODO - not thread safe if I parallelize this stuff
 function rs_format_count() {
-    if [ "$1" -gt 0 ]; then
-        echo "$(gs_color "$2" "$1")$3"
+    if [ "$2" -gt 0 ]; then
+        unset -v colored_string
+        gs_color colored_string "$3" "$2"
+        printf -v "$1" "$colored_string$4"
     fi
 }
 
 # parse the branch info from `git status --porcelain --branch`
+# arguments:
+# $1 - return variable name
+# $2 - output lines from `git status ...`
 function rs_parse_branch_line() {
     # TODO: simplifiy - this seems overcomplicated, maybe just use a regex?
     local IFS=''
     while read -r line; do
         local XY=${line:0:2}
         case "$XY" in
-            \#\#)  echo "${line:3}"; break ;;
+            \#\#)  printf -v "$1" "${line:3}"; break ;;
         esac
-    done <<< "$1"
+    done <<< "$2"
 }
 
+# parse the output from `git stash list`
+# arguments:
+# $1 - return variable name
 function rs_git_stash() {
     local git_stash_list=$(git stash list)
     if [ "$git_stash_list" ]; then
@@ -145,10 +164,15 @@ function rs_git_stash() {
         while read -r line; do
             ((git_num_stashed++))
         done <<< "$git_stash_list"
-        echo "$(gs_color "$GS_COLOR_STASHED" "$git_num_stashed")$GS_SYM_STASHED"
+        unset -v colored_stash_string
+        gs_color colored_stash_string "$GS_COLOR_STASHED" "$git_num_stashed"
+        printf -v "$1" "$colored_stash_string$GS_SYM_STASHED"
     fi
 }
 
+# parse the output from `git show-ref original`
+# argument(s):
+# $1 - return variable name
 function rs_git_backup_refs() {
     local git_show_ref=$(git show-ref original)
     if [ "$git_show_ref" ]; then
@@ -160,36 +184,42 @@ function rs_git_backup_refs() {
                 ((git_num_orig_refs++))
             fi
         done <<< "$git_show_ref"
-        echo $(rs_format_count "$git_num_orig_refs" "$GS_COLOR_BACKUP_REF" "$GS_SYM_BACKUP_REF")
+        rs_format_count "$1" "$git_num_orig_refs" "$GS_COLOR_BACKUP_REF" "$GS_SYM_BACKUP_REF"
     fi
 }
 
+# figure out if there is a rebase happening
 # arguments
-# $1 - git base dir
+# $1 - return variable name
+# $2 - git base dir
 function rs_git_rebase() {
-    local git_dir="$1"
+    local git_dir="$2"
     local git_rebase_head=''
     if [ -d "$git_dir/rebase-apply" ] || [ -d "$git_dir/rebase-merge" ]; then
         if [ -f "$git_dir/rebase-apply/head-name" ]; then
-            git_rebase_head="$(cat "$git_dir/rebase-apply/head-name")"
+            git_rebase_head="$(<"$git_dir/rebase-apply/head-name")"
         elif [ -f "$git_dir/rebase-merge/head-name" ]; then
-            git_rebase_head="$(cat "$git_dir/rebase-merge/head-name")"
+            git_rebase_head="$(<"$git_dir/rebase-merge/head-name")"
         else
             git_rebase_head="!!"
         fi
         if [[ "$git_rebase_head" =~ .*/([^/]+) ]]; then
             git_rebase_head="${BASH_REMATCH[1]}"
         fi
-        echo "$GS_SYM_REBASE$(gs_color "$GS_COLOR_REBASE" "$git_rebase_head")"
+        unset -v colored_rebase_string
+        gs_color colored_rebase_string "$GS_COLOR_REBASE" "$git_rebase_head"
+        printf -v "$1" "$GS_SYM_REBASE$colored_rebase_string"
     fi
 }
 
+# figure out if there is a merge happening
 # arguments
-# $1 - git base directory
+# $1 - return variable name
+# $2 - git base directory
 function rs_git_merge() {
-    local git_dir="$1"
+    local git_dir="$2"
     if [ -f "$git_dir/MERGE_HEAD" ]; then
-        local git_merge_head="$(cat "$git_dir/MERGE_HEAD")"
+        local git_merge_head="$(<"$git_dir/MERGE_HEAD")"
         local git_merge_branch="$(git branch --no-color --contains "$git_merge_head")"
         local git_merge_name=''
         if [ "$git_merge_branch" ]; then
@@ -199,26 +229,33 @@ function rs_git_merge() {
         else
             git_merge_name="${git_merge_head:0:8}"
         fi
-        echo "$GS_SYM_MERGE$(gs_color "$GS_COLOR_MERGE" "$git_merge_name")"
+        unset -v colored_merge_string
+        gs_color colored_merge_string "$GS_COLOR_MERGE" "$git_merge_name"
+        printf -v "$1" "$GS_SYM_MERGE$colored_merge_string"
     fi
 }
 
+# figure out if there is a bisect happening
 # arguments
-# $1 - git base directory
+# $1 - return variable name
+# $2 - git base directory
 function rs_git_bisect() {
-    local git_dir="$1"
+    local git_dir="$2"
     if [ -f "$git_dir/BISECT_START" ]; then
-        local git_bisect_start="$(cat "$git_dir/BISECT_START")"
-        echo "$GS_SYM_BISECT$(gs_color "$GS_COLOR_BISECT" "$git_bisect_start")"
+        local git_bisect_start="$(<"$git_dir/BISECT_START")"
+        unset -v colored_bisect_string
+        gs_color colored_bisect_string "$GS_COLOR_BISECT" "$git_bisect_start"
+        echo "$GS_SYM_BISECT$colored_bisect_string"
     fi
 }
 
 # combine local status into a string
 # arguments:
-# $1 - git base directory
-# $2 - git granch line from `git status --porcelain --branch`, without the leading "## "
+# $1 - return variable name
+# $2 - git base directory
+# $3 - git granch line from `git status --porcelain --branch`, without the leading "## "
 function rs_git_local_status() {
-    local git_dir="$1"
+    local git_dir="$2"
     local git_num_staged=0
     local git_num_modified=0
     local git_num_conflict=0
@@ -237,76 +274,93 @@ function rs_git_local_status() {
         case "$XY" in
             [MARCD]?) ((git_num_staged++)) ;; # modified/added/renamed/copied/deleted in index
         esac
-    done <<< "$2"
+    done <<< "$3"
 
-    local git_staged=$(rs_format_count "$git_num_staged" "$GS_COLOR_STAGED" "$GS_SYM_STAGED")
-    local git_modified=$(rs_format_count "$git_num_modified" "$GS_COLOR_MODIFIED" "$GS_SYM_MODIFIED")
-    local git_untracked=$(rs_format_count "$git_num_untracked" "$GS_COLOR_UNTRACKED" "$GS_SYM_UNTRACKED")
-    local git_conflict=$(rs_format_count "$git_num_conflict" "$GS_COLOR_CONFLICT" "$GS_SYM_CONFLICT")
+    rs_format_count git_staged "$git_num_staged" "$GS_COLOR_STAGED" "$GS_SYM_STAGED"
+    rs_format_count git_modified "$git_num_modified" "$GS_COLOR_MODIFIED" "$GS_SYM_MODIFIED"
+    rs_format_count git_untracked "$git_num_untracked" "$GS_COLOR_UNTRACKED" "$GS_SYM_UNTRACKED"
+    rs_format_count git_conflict "$git_num_conflict" "$GS_COLOR_CONFLICT" "$GS_SYM_CONFLICT"
 
-    local git_stashed=$(rs_git_stash)
-    local git_backup_refs=$(rs_git_backup_refs)
-    local git_rebase=$(rs_git_rebase "$git_dir")
-    local git_merge=$(rs_git_merge "$git_dir")
-    local git_bisect=$(rs_git_bisect "$git_dir")
+    rs_git_stash git_stashed
+    rs_git_backup_refs git_backup_refs
+    rs_git_rebase git_rebase "$git_dir"
+    rs_git_merge git_merge "$git_dir"
+    rs_git_bisect git_bisect "$git_dir"
 
     local git_stat_arr=($git_rebase $git_merge $git_bisect $git_conflict $git_backup_refs $git_staged $git_modified $git_stashed $git_untracked)
-    local git_local_status=$(gs_join ' ' "${git_stat_arr[@]}")
+    gs_join_by_space git_local_status "${git_stat_arr[@]}"
     if [[ ! -z "${git_local_status// }" ]]; then
-        echo "$git_local_status"
+        printf -v "$1" "$git_local_status"
     else
-        echo "$(gs_color "$GS_COLOR_LOCAL_OK" "$GS_SYM_LOCAL_OK")"
+        gs_color "$1" "$GS_COLOR_LOCAL_OK" "$GS_SYM_LOCAL_OK"
     fi
 }
 
 # return local branch/tag/commit and remote branch if it exists
 # arguments:
-# $1 - git granch line from `git status --porcelain --branch`, without the leading "## "
+# $1 - return variable name for head
+# $2 - return variable name for head (nocolor)
+# $3 - return variable name for origin
+# $4 - git branch line from `git status --porcelain --branch`, without the leading "## "
 function rs_git_head_origin() {
-    local git_head=''
-    if [[ "$1" =~ Initial\ commit\ on\ (.+) ]]; then
+    unset -v "$1" "$2" "$3"
+    local status_line="$4"
+    if [[ "$status_line" =~ Initial\ commit\ on\ (.+) ]]; then
         # "Initial commit on master" - local branch only
         # "Initial commit on master...origin/master" - checked out empty repo
-        echo "$GS_SYM_BRANCH$(gs_color "$GS_COLOR_BRANCH" "${BASH_REMATCH[1]%%...*}")"
-    elif [[ "$1" =~ no\ branch ]]; then
+        unset -v colored_head_string
+        gs_color colored_head_string "$GS_COLOR_BRANCH" "${BASH_REMATCH[1]%%...*}"
+        # TODO - also return nocolor version?
+        printf -v "$1" "$GS_SYM_BRANCH$colored_head_string"
+    elif [[ "$status_line" =~ no\ branch ]]; then
         # "HEAD (no branch)" - on tag or detached on commit
         local git_tag=$(git describe --exact-match 2>/dev/null)
         if [ -n "$git_tag" ]; then
-            echo "$GS_SYM_TAG$(gs_color "$GS_COLOR_TAG" "$git_tag")"
+            unset -v colored_tag_string
+            gs_color colored_tag_string "$GS_COLOR_TAG" "$git_tag"
+            printf -v "$1" "$GS_SYM_TAG$colored_tag_string"
         else
             local git_commit_hash=$(git rev-parse --short HEAD)
-            echo "$GS_SYM_HASH$(gs_color "$GS_COLOR_HASH" "$git_commit_hash")"
+            unset -v colored_hash_string
+            gs_color colored_hash_string "$GS_COLOR_HASH" "$git_commit_hash"
+            printf -v "$1" "$GS_SYM_HASH$colored_hash_string"
         fi
     else
         # "master...origin/master [gone]"
         # "master...origin/master [ahead 8]"
         # "master...origin/master [behind 12]"
         # "master...origin/master [ahead 1, behind 7]"
-        local git_branch_arr=(${1//.../ })
-        local git_branch="$GS_SYM_BRANCH$(gs_color "$GS_COLOR_BRANCH" "${git_branch_arr[0]}")"
-        local git_branch_nocolor="${git_branch_arr[0]}"
-        local git_origin="${git_branch_arr[1]}"
-        # git branches can't contain spaces, so this should be relatively safe
-        echo "$git_branch $git_branch_nocolor $git_origin"
+        local git_branch_arr=( ${status_line//.../ } )
+        unset -v colored_branches_string
+        gs_color colored_branches_string "$GS_COLOR_BRANCH" "${git_branch_arr[0]}"
+        printf -v "$1" "$GS_SYM_BRANCH$colored_branches_string"
+        printf -v "$2" "${git_branch_arr[0]}"
+        printf -v "$3" "${git_branch_arr[1]}"
     fi
 }
 
 # arguments:
-# $1 - local git branch
+# $1 - return variable name
+# $2 - local git branch
 function rs_git_reviewid() {
-    local git_reviewboard_id=$(git config --get branch.$1.reviewid)
+    unset -v "$1"
+    local git_reviewboard_id=$(git config --get branch.$2.reviewid)
     if [ -n "$git_reviewboard_id" ]; then
-        echo " $GS_SYM_REVIEWBOARD$(gs_color "$GS_COLOR_REVIEWID" "$git_reviewboard_id")"
+        unset -v colored_review_string
+        gs_color colored_review_string "$GS_COLOR_REVIEWID" "$git_reviewboard_id"
+        printf -v "$1" " $GS_SYM_REVIEWBOARD$colored_review_string"
     fi
 }
 
 # arguments:
-# $1 - local git branch
-# $2 - origin branch that is tracking the local branch (if it exists)
+# $1 - return variable name
+# $2 - local git branch
+# $3 - origin branch that is tracking the local branch (if it exists)
 function rs_git_remote_status() {
-    local git_head="$1"
-    local git_origin="$2"
-    local git_upstream="${2/origin/upstream}"
+    unset -v "$1"
+    local git_head="$2"
+    local git_origin="$3"
+    local git_upstream="${3/origin/upstream}"
     if [[ -z "$git_origin" ]]; then
         # local branch with no remote tracking
         local git_excludes=''
@@ -319,29 +373,36 @@ function rs_git_remote_status() {
                     git_excludes_arr+=("^$r")
                 fi
             done
-            git_excludes=$(gs_join ' ' "${git_excludes_arr[@]}")
+            gs_join_by_space git_excludes "${git_excludes_arr[@]}"
         fi
         # figure out how many commits exist on this branch that are not in the remotes
         local git_local_commits=$(git rev-list --count HEAD ${git_excludes} 2>/dev/null)
         if [ -n "$git_local_commits" ] && [ "$git_local_commits" -gt 0 ]; then
-            local git_remote_status="$(gs_color "$GS_COLOR_NEED_PUSH_UNTRACKED" "$git_local_commits")$GS_SYM_NEED_PUSH_UNTRACKED"
+            unset -v colored_string
+            gs_color colored_string "$GS_COLOR_NEED_PUSH_UNTRACKED" "$git_local_commits"
+            local git_remote_status="$colored_string$GS_SYM_NEED_PUSH_UNTRACKED"
         else
-            local git_remote_status=$(gs_color "$GS_COLOR_NO_REMOTE" "$GS_SYM_NO_REMOTE")
+            unset -v git_remote_status
+            gs_color git_remote_status "$GS_COLOR_NO_REMOTE" "$GS_SYM_NO_REMOTE"
         fi
-        echo "$git_remote_status"
+        printf -v "$1" "$git_remote_status"
     else
         # remote tracking branch
         local git_rev_list_origin=$(git rev-list --count --left-right ${git_head}...${git_origin} 2>/dev/null)
         if [ "$?" -eq 0 ] && [ -n "$git_rev_list_origin" ]; then
             local git_origin_arr=($git_rev_list_origin) # will split into array because it's 2 numbers separated by spaces
-            local git_ahead=$(rs_format_count "${git_origin_arr[0]}" "$GS_COLOR_NEED_PUSH" "$GS_SYM_NEED_PUSH")
-            local git_behind=$(rs_format_count "${git_origin_arr[1]}" "$GS_COLOR_NEED_PULL" "$GS_SYM_NEED_PULL")
+            # local git_ahead=$(rs_format_count "${git_origin_arr[0]}" "$GS_COLOR_NEED_PUSH" "$GS_SYM_NEED_PUSH")
+            # local git_behind=$(rs_format_count "${git_origin_arr[1]}" "$GS_COLOR_NEED_PULL" "$GS_SYM_NEED_PULL")
+            rs_format_count git_ahead "${git_origin_arr[0]}" "$GS_COLOR_NEED_PUSH" "$GS_SYM_NEED_PUSH"
+            rs_format_count git_behind "${git_origin_arr[1]}" "$GS_COLOR_NEED_PULL" "$GS_SYM_NEED_PULL"
         fi
         git_rev_list_upstream=$(git rev-list --count --left-right ${git_origin}...${git_upstream} 2>/dev/null)
         if [ "$?" -eq 0 ]; then
             local git_upstream_arr=($git_rev_list_upstream) # will split into array because it's 2 numbers separated by spaces
-            local git_fork_ahead=$(rs_format_count "${git_upstream_arr[0]}" "$GS_COLOR_FORK_AHEAD" "")
-            local git_fork_behind=$(rs_format_count "${git_upstream_arr[1]}" "$GS_COLOR_FORK_BEHIND" "")
+            # local git_fork_ahead=$(rs_format_count "${git_upstream_arr[0]}" "$GS_COLOR_FORK_AHEAD" "")
+            # local git_fork_behind=$(rs_format_count "${git_upstream_arr[1]}" "$GS_COLOR_FORK_BEHIND" "")
+            rs_format_count git_fork_ahead "${git_upstream_arr[0]}" "$GS_COLOR_FORK_AHEAD" ""
+            rs_format_count git_fork_behind "${git_upstream_arr[1]}" "$GS_COLOR_FORK_BEHIND" ""
             if [ "$git_fork_ahead" ] || [ "$git_fork_behind" ]; then
                 local git_fork_status="${git_fork_ahead}$GS_SYM_FORK${git_fork_behind}"
             fi
@@ -349,12 +410,13 @@ function rs_git_remote_status() {
 
         if [ "$git_behind" ] || [ "$git_ahead" ] || [ "$git_fork_status" ]; then
             local git_remote_stat_arr=($git_behind $git_ahead $git_fork_status)
-            local git_remote_status=$(gs_join ' ' "${git_remote_stat_arr[@]}")
+            gs_join_by_space git_remote_status "${git_remote_stat_arr[@]}"
         else
             # all sync-ed up
-            local git_remote_status=$(gs_color "$GS_COLOR_REMOTE_OK" "$GS_SYM_REMOTE_OK")
+            unset -v git_remote_status
+            gs_color git_remote_status "$GS_COLOR_REMOTE_OK" "$GS_SYM_REMOTE_OK"
         fi
-        echo "$git_remote_status"
+        printf -v "$1" "$git_remote_status"
     fi
 }
 
@@ -411,7 +473,8 @@ function rs_svn_local_status() {
     local svn_obstructed=$(rs_format_count "$svn_num_obstructed" "$RS_COLOR_SVN_OBSTRUCTED" "$RS_SYM_SVN_OBSTRUCTED")
 
     local svn_stat_arr=($svn_conflicted $svn_added $svn_modified $svn_deleted $svn_locked $svn_history $svn_untracked $svn_external $svn_switched $svn_ignored $svn_missing $svn_obstructed)
-    echo "$(gs_join ' ' "${svn_stat_arr[@]}")"
+    gs_join_by_space retval "${svn_stat_arr[@]}"
+    echo "$retval"
 }
 
 # show info about what kind of repo we're in
@@ -424,17 +487,15 @@ function repo_status() {
     # git
     git_status_porcelain=$(git status --porcelain --untracked-files=normal --branch 2>/dev/null)
     if [ "$?" -eq 0 ]; then
-        gs_remote_update_async
-        local gs_git=$(gs_color "$GS_COLOR_GIT" "$GS_SYM_GIT")
+        #gs_remote_update_async
+        unset -v gs_git
+        gs_color gs_git "$GS_COLOR_GIT" "$GS_SYM_GIT"
         local git_dir=$(git rev-parse --git-dir)
-        local git_branch_info=$(rs_parse_branch_line "$git_status_porcelain")
-        local git_branch_arr=( $(rs_git_head_origin "$git_branch_info") )
-        local git_head="${git_branch_arr[0]}"
-        local git_head_nocolor="${git_branch_arr[1]}"
-        local git_origin="${git_branch_arr[2]}"
-        local git_reviewid=$(rs_git_reviewid "$git_head_nocolor")
+        rs_parse_branch_line git_branch_info "$git_status_porcelain"
+        rs_git_head_origin git_head git_head_nocolor git_origin "$git_branch_info"
+        rs_git_reviewid git_reviewid "$git_head_nocolor"
         local git_remote_status=$(rs_git_remote_status "$git_head_nocolor" "$git_origin")
-        local git_local_status=$(rs_git_local_status "$git_dir" "$git_status_porcelain")
+        rs_git_local_status git_local_status "$git_dir" "$git_status_porcelain"
         rs_status+="  $gs_git$git_head$git_reviewid $git_remote_status / $git_local_status"
     fi
     # svn
