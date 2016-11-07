@@ -494,7 +494,7 @@ function repo_status() {
         rs_parse_branch_line git_branch_info "$git_status_porcelain"
         rs_git_head_origin git_head git_head_nocolor git_origin "$git_branch_info"
         rs_git_reviewid git_reviewid "$git_head_nocolor"
-        local git_remote_status=$(rs_git_remote_status "$git_head_nocolor" "$git_origin")
+        rs_git_remote_status git_remote_status "$git_head_nocolor" "$git_origin"
         rs_git_local_status git_local_status "$git_dir" "$git_status_porcelain"
         rs_status+="  $gs_git$git_head$git_reviewid $git_remote_status / $git_local_status"
     fi
