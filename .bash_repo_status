@@ -119,7 +119,7 @@ function gs_remote_update_async() {
 function gs_join_by_space() {
     local varname="$1"
     local first_element="$2"
-    shift 2
+    shift 2 || shift $(($#)) # account for case of empty array (thanks http://stackoverflow.com/a/23673883)
     printf -v "$varname" "%s" "$first_element${@/#/ }"
 }
 
@@ -240,12 +240,13 @@ function rs_git_merge() {
 # $1 - return variable name
 # $2 - git base directory
 function rs_git_bisect() {
+    unset -v "$1"
     local git_dir="$2"
     if [ -f "$git_dir/BISECT_START" ]; then
         local git_bisect_start="$(<"$git_dir/BISECT_START")"
         unset -v colored_bisect_string
         gs_color colored_bisect_string "$GS_COLOR_BISECT" "$git_bisect_start"
-        echo "$GS_SYM_BISECT$colored_bisect_string"
+        printf -v "$1" "$GS_SYM_BISECT$colored_bisect_string"
     fi
 }
 
