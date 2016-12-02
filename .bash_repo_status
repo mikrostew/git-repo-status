@@ -311,8 +311,8 @@ function rs_git_head_origin() {
         # "Initial commit on master...origin/master" - checked out empty repo
         unset -v colored_head_string
         gs_color colored_head_string "$GS_COLOR_BRANCH" "${BASH_REMATCH[1]%%...*}"
-        # TODO - also return nocolor version?
         printf -v "$1" "$GS_SYM_BRANCH$colored_head_string"
+        printf -v "$2" "${BASH_REMATCH[1]%%...*}"
     elif [[ "$status_line" =~ no\ branch ]]; then
         # "HEAD (no branch)" - on tag or detached on commit
         local git_tag=$(git describe --exact-match 2>/dev/null)
@@ -327,6 +327,7 @@ function rs_git_head_origin() {
             printf -v "$1" "$GS_SYM_HASH$colored_hash_string"
         fi
     else
+        # "master"
         # "master...origin/master [gone]"
         # "master...origin/master [ahead 8]"
         # "master...origin/master [behind 12]"
@@ -381,7 +382,7 @@ function rs_git_remote_status() {
         if [ -n "$git_local_commits" ] && [ "$git_local_commits" -gt 0 ]; then
             unset -v colored_string
             gs_color colored_string "$GS_COLOR_NEED_PUSH_UNTRACKED" "$git_local_commits"
-            local git_remote_status="$colored_string$GS_SYM_NEED_PUSH_UNTRACKED"
+            git_remote_status="$colored_string$GS_SYM_NEED_PUSH_UNTRACKED"
         else
             unset -v git_remote_status
             gs_color git_remote_status "$GS_COLOR_NO_REMOTE" "$GS_SYM_NO_REMOTE"
