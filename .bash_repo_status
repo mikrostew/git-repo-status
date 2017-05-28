@@ -553,3 +553,65 @@ function debug_repo_status_call_trace() {
     ( set -x; repo_status 2>&1 | grep " git " )
 }
 
+# figure out how long the individual functions take to run
+function debug_repo_status_function_time() {
+    somevar="doesn't matter"
+    somevar1="doesn't matter"
+    somevar2="doesn't matter"
+    git_status_porcelain=$(git status --porcelain --untracked-files=normal --branch 2>/dev/null)
+    git_dir="$(git rev-parse --git-dir)"
+    rs_parse_branch_line git_branch_info "$git_status_porcelain"
+    rs_git_head_origin git_head git_head_nocolor git_origin "$git_branch_info"
+
+    # because I always forget how to sed:
+    # - don't automatically print input lines (-n)
+    # - for the "real   0m0.001s" line, strip out the "real" and whitespace, and print that
+    # (https://www.gnu.org/software/sed/manual/sed.html)
+    real_time="sed -n s/real[[:space:]]*//p"
+
+    # TODO refactor this stuff to a loop
+    printf "%-30s %s\n" \
+      "repo_status()" \
+      "$( ( time repo_status ) 2>&1 | $real_time )"
+
+    printf "%-30s %s\n" \
+      "rs_parse_branch_line()" \
+      "$( ( time rs_parse_branch_line somevar $git_status_porcelain ) 2>&1 | $real_time )"
+
+    printf "%-30s %s\n" \
+      "rs_git_stash()" \
+      "$( ( time rs_git_stash somevar ) 2>&1 | $real_time )"
+
+    printf "%-30s %s\n" \
+      "rs_git_backup_refs()" \
+      "$( ( time rs_git_backup_refs somevar ) 2>&1 | $real_time )"
+
+    printf "%-30s %s\n" \
+      "rs_git_rebase()" \
+      "$( ( time rs_git_rebase somevar $git_dir ) 2>&1 | $real_time )"
+
+    printf "%-30s %s\n" \
+      "rs_git_merge()" \
+      "$( ( time rs_git_merge somevar $git_dir ) 2>&1 | $real_time )"
+
+    printf "%-30s %s\n" \
+      "rs_git_bisect()" \
+      "$( ( time rs_git_bisect somevar $git_dir ) 2>&1 | $real_time )"
+
+    printf "%-30s %s\n" \
+      "rs_git_local_status()" \
+      "$( ( time rs_git_local_status somevar $git_dir "$git_status_porcelain" ) 2>&1 | $real_time )"
+
+    printf "%-30s %s\n" \
+      "rs_git_head_origin()" \
+      "$( ( time rs_git_head_origin somevar somevar1 somevar2 "$git_branch_info" ) 2>&1 | $real_time )"
+
+    printf "%-30s %s\n" \
+      "rs_git_reviewid()" \
+      "$( ( time rs_git_reviewid somevar "$git_head_nocolor" ) 2>&1 | $real_time )"
+
+    printf "%-30s %s\n" \
+      "rs_git_remote_status()" \
+      "$( ( time rs_git_remote_status somevar "$git_head_nocolor" "$git_origin" ) 2>&1 | $real_time )"
+}
+
