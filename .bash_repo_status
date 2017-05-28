@@ -548,3 +548,8 @@ function repo_status() {
     echo -e "$rs_status"
 }
 
+# trace the calls that are made to git
+function debug_repo_status_call_trace() {
+    ( set -x; repo_status 2>&1 | grep " git " )
+}
+
