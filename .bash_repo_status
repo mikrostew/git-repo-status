@@ -155,17 +155,30 @@ function rs_parse_branch_line() {
 # parse the output from `git stash list`
 # arguments:
 # $1 - return variable name
+# $2 - git base dir
 function rs_git_stash() {
-    local git_stash_list=$(git stash list)
-    if [ "$git_stash_list" ]; then
-        local git_num_stashed=0
-        # TODO: easier way to count number of lines in a string var?
-        local IFS=''
-        while read -r line; do
-            ((git_num_stashed++))
-        done <<< "$git_stash_list"
+    # only do this if there are stashes
+    if [ -e "$2/refs/stash" ]; then
+        local last_stash_time=$(stat -f "%m" "$2/refs/stash")
+        local cached_stash_info=$(git config repoStatus.stashInfo)
+        local cached_stash_time=${cached_stash_info%%:*} # string before ':'
+        local cached_num_stashes=${cached_stash_info#*:} # string after ':'
+
+        if [ -z "$cached_stash_time" ] || [ -z "$cached_num_stashes" ] || [ "$last_stash_time" -ne "$cached_stash_time" ]; then
+            # something has changed, or haven't run before - need to re-calculate
+            # this is faster than "git stash list" in my testing:
+            local git_stash_list=$(git reflog show stash)
+            local git_num_stashed=0
+            # TODO: cleaner way to count number of lines in a string var?
+            local IFS=''
+            while read -r line; do
+                ((git_num_stashed++))
+            done <<< "$git_stash_list"
+            git config repoStatus.stashInfo "$last_stash_time:$git_num_stashed"
+            cached_num_stashes=$git_num_stashed
+        fi
         unset -v colored_stash_string
-        gs_color colored_stash_string "$GS_COLOR_STASHED" "$git_num_stashed"
+        gs_color colored_stash_string "$GS_COLOR_STASHED" "$cached_num_stashes"
         printf -v "$1" "$colored_stash_string$GS_SYM_STASHED"
     fi
 }
@@ -282,7 +295,8 @@ function rs_git_local_status() {
     rs_format_count git_untracked "$git_num_untracked" "$GS_COLOR_UNTRACKED" "$GS_SYM_UNTRACKED"
     rs_format_count git_conflict "$git_num_conflict" "$GS_COLOR_CONFLICT" "$GS_SYM_CONFLICT"
 
-    rs_git_stash git_stashed
+    unset -v git_stashed
+    rs_git_stash git_stashed "$git_dir"
     rs_git_backup_refs git_backup_refs
     rs_git_rebase git_rebase "$git_dir"
     rs_git_merge git_merge "$git_dir"
@@ -498,7 +512,7 @@ function repo_status() {
         rs_git_reviewid git_reviewid "$git_head_nocolor"
         rs_git_remote_status git_remote_status "$git_head_nocolor" "$git_origin"
         rs_git_local_status git_local_status "$git_dir" "$git_status_porcelain"
-        rs_status+="  $gs_git$git_head$git_reviewid $git_remote_status / $git_local_status"
+        rs_status+="$gs_git$git_head$git_reviewid $git_remote_status / $git_local_status"
     fi
     # svn
     # rs_svn=$(gs_color "$RS_COLOR_SVN" "$RS_SYM_SVN")
@@ -580,7 +594,7 @@ function debug_repo_status_function_time() {
 
     printf "%-30s %s\n" \
       "rs_git_stash()" \
-      "$( ( time rs_git_stash somevar ) 2>&1 | $real_time )"
+      "$( ( time rs_git_stash somevar $git_dir ) 2>&1 | $real_time )"
 
     printf "%-30s %s\n" \
       "rs_git_backup_refs()" \
