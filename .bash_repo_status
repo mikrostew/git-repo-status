@@ -187,6 +187,12 @@ function rs_git_stash() {
 # argument(s):
 # $1 - return variable name
 function rs_git_backup_refs() {
+    # TODO: caching
+    # check modified timestamp of .git/packed-refs (with stat)
+    # if modified, `grep "original" .git/packed-refs`
+    # count that and cache it
+    # also need to run `find .git/refs/original/refs/*/*` for any refs in that folder
+    # then combine those 2 counts
     local git_show_ref=$(git show-ref original)
     if [ "$git_show_ref" ]; then
         local git_num_orig_refs=0
