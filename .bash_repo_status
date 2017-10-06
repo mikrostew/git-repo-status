@@ -322,17 +322,20 @@ function rs_git_head_origin() {
     local status_line="$4"
     if [[ "$status_line" =~ No\ commits\ yet\ on\ (.+) ]]; then
         # "No commits yet on master" - initialized empty repo
-        unset -v colored_head_string
-        gs_color colored_head_string "$GS_COLOR_BRANCH" "${BASH_REMATCH[1]}"
-        printf -v "$1" "$GS_SYM_BRANCH$colored_head_string"
-        printf -v "$2" "${BASH_REMATCH[1]}"
-    elif [[ "$status_line" =~ Initial\ commit\ on\ (.+) ]]; then
-        # "Initial commit on master" - local branch only
-        # "Initial commit on master...origin/master" - checked out empty repo
-        unset -v colored_head_string
-        gs_color colored_head_string "$GS_COLOR_BRANCH" "${BASH_REMATCH[1]%%...*}"
-        printf -v "$1" "$GS_SYM_BRANCH$colored_head_string"
-        printf -v "$2" "${BASH_REMATCH[1]%%...*}"
+        # "No commits yet on master...origin/master [gone]" - checked out empty repo
+        local git_branch_arr=( ${BASH_REMATCH[1]//.../ } ) # replace '...' with ' '
+        unset -v colored_empty_string
+        gs_color colored_empty_string "$GS_COLOR_BRANCH" "${git_branch_arr[0]}"
+        printf -v "$1" "$GS_SYM_BRANCH$colored_empty_string"
+        printf -v "$2" "${git_branch_arr[0]}"
+        printf -v "$3" "${git_branch_arr[1]}"
+    # elif [[ "$status_line" =~ Initial\ commit\ on\ (.+) ]]; then
+    #     # "Initial commit on master" - local branch only
+    #     # "Initial commit on master...origin/master" - checked out empty repo
+    #     unset -v colored_head_string
+    #     gs_color colored_head_string "$GS_COLOR_BRANCH" "${BASH_REMATCH[1]%%...*}"
+    #     printf -v "$1" "$GS_SYM_BRANCH$colored_head_string"
+    #     printf -v "$2" "${BASH_REMATCH[1]%%...*}"
     elif [[ "$status_line" =~ no\ branch ]]; then
         # "HEAD (no branch)" - on tag or detached on commit
         local git_tag=$(git describe --exact-match 2>/dev/null)
@@ -352,7 +355,7 @@ function rs_git_head_origin() {
         # "master...origin/master [ahead 8]"
         # "master...origin/master [behind 12]"
         # "master...origin/master [ahead 1, behind 7]"
-        local git_branch_arr=( ${status_line//.../ } )
+        local git_branch_arr=( ${status_line//.../ } ) # replace '...' with ' '
         unset -v colored_branches_string
         gs_color colored_branches_string "$GS_COLOR_BRANCH" "${git_branch_arr[0]}"
         printf -v "$1" "$GS_SYM_BRANCH$colored_branches_string"
