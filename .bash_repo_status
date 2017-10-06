@@ -320,7 +320,13 @@ function rs_git_local_status() {
 function rs_git_head_origin() {
     unset -v "$1" "$2" "$3"
     local status_line="$4"
-    if [[ "$status_line" =~ Initial\ commit\ on\ (.+) ]]; then
+    if [[ "$status_line" =~ No\ commits\ yet\ on\ (.+) ]]; then
+        # "No commits yet on master" - initialized empty repo
+        unset -v colored_head_string
+        gs_color colored_head_string "$GS_COLOR_BRANCH" "${BASH_REMATCH[1]}"
+        printf -v "$1" "$GS_SYM_BRANCH$colored_head_string"
+        printf -v "$2" "${BASH_REMATCH[1]}"
+    elif [[ "$status_line" =~ Initial\ commit\ on\ (.+) ]]; then
         # "Initial commit on master" - local branch only
         # "Initial commit on master...origin/master" - checked out empty repo
         unset -v colored_head_string
@@ -650,4 +656,28 @@ function test_parse_branch_line() {
     # testing the output of this function:
     rs_parse_branch_line git_branch_info "$git_status_porcelain"
     echo "$git_branch_info"
+}
+
+function test_git_head_origin_head() {
+    git_status_porcelain=$(git status --porcelain --untracked-files=normal --branch 2>/dev/null)
+    rs_parse_branch_line git_branch_info "$git_status_porcelain"
+    # testing the 'git_head' output of this function:
+    rs_git_head_origin git_head git_head_nocolor git_origin "$git_branch_info"
+    echo "$git_head"
+}
+
+function test_git_head_origin_head_nocolor() {
+    git_status_porcelain=$(git status --porcelain --untracked-files=normal --branch 2>/dev/null)
+    rs_parse_branch_line git_branch_info "$git_status_porcelain"
+    # testing the 'git_head_nocolor' output of this function:
+    rs_git_head_origin git_head git_head_nocolor git_origin "$git_branch_info"
+    echo "$git_head_nocolor"
+}
+
+function test_git_head_origin_origin() {
+    git_status_porcelain=$(git status --porcelain --untracked-files=normal --branch 2>/dev/null)
+    rs_parse_branch_line git_branch_info "$git_status_porcelain"
+    # testing the 'git_origin' output of this function:
+    rs_git_head_origin git_head git_head_nocolor git_origin "$git_branch_info"
+    echo "$git_origin"
 }
