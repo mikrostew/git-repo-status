@@ -267,7 +267,7 @@ function rs_git_bisect() {
 # arguments:
 # $1 - return variable name
 # $2 - git base directory
-# $3 - git granch line from `git status --porcelain --branch`, without the leading "## "
+# $3 - output of `git status --porcelain ...`
 function rs_git_local_status() {
     local git_dir="$2"
     local git_num_staged=0
@@ -278,12 +278,12 @@ function rs_git_local_status() {
     while read -r line; do
         XY=${line:0:2}
         case "$XY" in
-            U?)     ((git_num_conflict++)) ;;  # unmerged
-            ?U)     ((git_num_conflict++)) ;;  # unmerged
-            DD)     ((git_num_conflict++)) ;;  # unmerged (both deleted)
-            AA)     ((git_num_conflict++)) ;;  # unmerged (both added)
-            ?[MDT]) ((git_num_modified++)) ;;  # modified/deleted/typechange in working tree
-            \?\?)   ((git_num_untracked++)) ;; # untracked in index and working tree
+            U?)      ((git_num_conflict++)) ;;  # unmerged
+            ?U)      ((git_num_conflict++)) ;;  # unmerged
+            DD)      ((git_num_conflict++)) ;;  # unmerged (both deleted)
+            AA)      ((git_num_conflict++)) ;;  # unmerged (both added)
+            ?[MADT]) ((git_num_modified++)) ;;  # modified/added/deleted/typechange in working tree
+            \?\?)    ((git_num_untracked++)) ;; # untracked in index and working tree
         esac
         case "$XY" in
             [MARCD]?) ((git_num_staged++)) ;; # modified/added/renamed/copied/deleted in index
@@ -562,6 +562,8 @@ function repo_status() {
     echo -e "$rs_status"
 }
 
+#################### Debugging & Profiling ####################
+
 # trace the calls that are made to git
 function debug_repo_status_call_trace() {
     ( set -x; repo_status 2>&1 | grep " git " )
@@ -631,4 +633,14 @@ function debug_repo_status_function_time() {
     printf "%-30s %s\n" \
       "rs_git_remote_status()" \
       "$( ( time rs_git_remote_status somevar "$git_head_nocolor" "$git_origin" ) 2>&1 | $real_time )"
+}
+
+#################### For Testing ####################
+
+function test_git_local_status() {
+    git_status_porcelain=$(git status --porcelain --untracked-files=normal --branch 2>/dev/null)
+    git_dir=$(git rev-parse --git-dir)
+    # testing the output of this function:
+    rs_git_local_status git_local_status "$git_dir" "$git_status_porcelain"
+    echo "$git_local_status"
 }
