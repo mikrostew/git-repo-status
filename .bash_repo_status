@@ -131,12 +131,12 @@ function rs_format_count() {
     fi
 }
 
-# parse the branch info from `git status --porcelain --branch`
+# parse the branch info from `git status --porcelain`
 # arguments:
 # $1 - return variable name
-# $2 - output lines from `git status ...`
+# $2 - output from `git status --porcelain ...`
 function rs_parse_branch_line() {
-    # TODO: simplifiy - this seems overcomplicated, maybe just use a regex?
+    # TODO: this seems overcomplicated, maybe just use a regex?
     local IFS=''
     while read -r line; do
         local XY=${line:0:2}
@@ -643,4 +643,11 @@ function test_git_local_status() {
     # testing the output of this function:
     rs_git_local_status git_local_status "$git_dir" "$git_status_porcelain"
     echo "$git_local_status"
+}
+
+function test_parse_branch_line() {
+    git_status_porcelain=$(git status --porcelain --untracked-files=normal --branch 2>/dev/null)
+    # testing the output of this function:
+    rs_parse_branch_line git_branch_info "$git_status_porcelain"
+    echo "$git_branch_info"
 }
