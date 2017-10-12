@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-# get colors from this file
 source "$DOTFILES_DIR/.bash_colors"
 
 # git colors
@@ -91,16 +90,16 @@ RS_SYM_SVN_IGNORED="<ignored>" #i
 RS_SYM_SVN_MISSING="<missing>" #mis
 RS_SYM_SVN_OBSTRUCTED="<obstructed>" #obs
 
-# function to set colors
+# set colors
 # argument(s)
 # $1 - variable to write
 # $2 - color esc sequence
 # $3 - string to color
-# function gs_color()  { echo "$1$2$COLOR_RESET"; }
-function gs_color()  { printf -v "$1" "$2$3$COLOR_RESET"; }
+# TODO: move this to the .bash_colors file
+gs_color()  { printf -v "$1" "$2$3$COLOR_RESET"; }
 
 # asynchronously fetch updates for all remotes (does not run if already running)
-function gs_remote_update_async() {
+gs_remote_update_async() {
     if [[ ! $(ps) =~ git\ remote\ update ]]; then
         nohup git remote update >/dev/null 2>&1 &
     fi
@@ -110,7 +109,7 @@ function gs_remote_update_async() {
 # arguments:
 # $1 - return variable name
 # $2 - array elements to join
-function gs_join_by_space() {
+gs_join_by_space() {
     local varname="$1"
     local first_element="$2"
     shift 2 || shift $(($#)) # account for case of empty array (thanks http://stackoverflow.com/a/23673883)
@@ -123,7 +122,7 @@ function gs_join_by_space() {
 # $3 - color
 # $4 - trailing symbol
 # TODO - not thread safe if I parallelize this stuff
-function rs_format_count() {
+rs_format_count() {
     if [ "$2" -gt 0 ]; then
         unset -v colored_string
         gs_color colored_string "$3" "$2"
@@ -135,7 +134,7 @@ function rs_format_count() {
 # arguments:
 # $1 - return variable name
 # $2 - output from `git status --porcelain ...`
-function rs_parse_branch_line() {
+rs_parse_branch_line() {
     # TODO: this seems overcomplicated, maybe just use a regex?
     local IFS=''
     while read -r line; do
@@ -150,7 +149,7 @@ function rs_parse_branch_line() {
 # arguments:
 # $1 - return variable name
 # $2 - git base dir
-function rs_git_stash() {
+rs_git_stash() {
     # only do this if there are stashes
     if [ -e "$2/refs/stash" ]; then
         local last_stash_time=$(stat -f "%m" "$2/refs/stash")
@@ -180,7 +179,7 @@ function rs_git_stash() {
 # parse the output from `git show-ref original`
 # argument(s):
 # $1 - return variable name
-function rs_git_backup_refs() {
+rs_git_backup_refs() {
     # TODO: caching
     # check modified timestamp of .git/packed-refs (with stat)
     # if modified, `grep "original" .git/packed-refs`
@@ -205,7 +204,7 @@ function rs_git_backup_refs() {
 # arguments
 # $1 - return variable name
 # $2 - git base dir
-function rs_git_rebase() {
+rs_git_rebase() {
     local git_dir="$2"
     local git_rebase_head=''
     if [ -d "$git_dir/rebase-apply" ] || [ -d "$git_dir/rebase-merge" ]; then
@@ -229,7 +228,7 @@ function rs_git_rebase() {
 # arguments
 # $1 - return variable name
 # $2 - git base directory
-function rs_git_merge() {
+rs_git_merge() {
     local git_dir="$2"
     if [ -f "$git_dir/MERGE_HEAD" ]; then
         local git_merge_head="$(<"$git_dir/MERGE_HEAD")"
@@ -252,7 +251,7 @@ function rs_git_merge() {
 # arguments
 # $1 - return variable name
 # $2 - git base directory
-function rs_git_bisect() {
+rs_git_bisect() {
     unset -v "$1"
     local git_dir="$2"
     if [ -f "$git_dir/BISECT_START" ]; then
@@ -268,7 +267,7 @@ function rs_git_bisect() {
 # $1 - return variable name
 # $2 - git base directory
 # $3 - output of `git status --porcelain ...`
-function rs_git_local_status() {
+rs_git_local_status() {
     local git_dir="$2"
     local git_num_staged=0
     local git_num_modified=0
@@ -317,7 +316,7 @@ function rs_git_local_status() {
 # $2 - return variable name for head (nocolor)
 # $3 - return variable name for origin
 # $4 - git branch line from `git status --porcelain --branch`, without the leading "## "
-function rs_git_head_origin() {
+rs_git_head_origin() {
     unset -v "$1" "$2" "$3"
     local status_line="$4"
     if [[ "$status_line" =~ No\ commits\ yet\ on\ (.+) ]]; then
@@ -367,7 +366,7 @@ function rs_git_head_origin() {
 # arguments:
 # $1 - return variable name
 # $2 - local git branch
-function rs_git_reviewid() {
+rs_git_reviewid() {
     unset -v "$1"
     local git_reviewboard_id=$(git config --get branch.$2.reviewid)
     if [ -n "$git_reviewboard_id" ]; then
@@ -381,7 +380,7 @@ function rs_git_reviewid() {
 # $1 - return variable name
 # $2 - local git branch
 # $3 - origin branch that is tracking the local branch (if it exists)
-function rs_git_remote_status() {
+rs_git_remote_status() {
     unset -v "$1"
     local git_head="$2"
     local git_origin="$3"
@@ -445,7 +444,7 @@ function rs_git_remote_status() {
     fi
 }
 
-function rs_svn_local_status() {
+rs_svn_local_status() {
     local svn_status=$(svn status 2>/dev/null)
 
     local svn_num_conflicted=0
@@ -507,7 +506,7 @@ function rs_svn_local_status() {
 # - http://zanshin.net/2012/03/09/wordy-nerdy-zsh-prompt/
 # - https://github.com/sjl/oh-my-zsh/commit/3d22ee248c6bce357c018a93d31f8d292d2cb4cd
 # - https://github.com/magicmonty/bash-git-prompt
-function repo_status() {
+repo_status() {
     rs_status=''
     # git
     git_status_porcelain=$(git status --porcelain --untracked-files=normal --branch 2>/dev/null)
@@ -574,12 +573,12 @@ function repo_status() {
 #################### Debugging & Profiling ####################
 
 # trace the calls that are made to git
-function debug_repo_status_call_trace() {
+debug_repo_status_call_trace() {
     ( set -x; repo_status 2>&1 | grep " git " )
 }
 
 # figure out how long the individual functions take to run
-function debug_repo_status_function_time() {
+debug_repo_status_function_time() {
     somevar="doesn't matter"
     somevar1="doesn't matter"
     somevar2="doesn't matter"
@@ -646,7 +645,7 @@ function debug_repo_status_function_time() {
 
 #################### For Testing ####################
 
-function test_git_local_status() {
+test_git_local_status() {
     git_status_porcelain=$(git status --porcelain --untracked-files=normal --branch 2>/dev/null)
     git_dir=$(git rev-parse --git-dir)
     # testing the output of this function:
@@ -654,14 +653,14 @@ function test_git_local_status() {
     echo "$git_local_status"
 }
 
-function test_parse_branch_line() {
+test_parse_branch_line() {
     git_status_porcelain=$(git status --porcelain --untracked-files=normal --branch 2>/dev/null)
     # testing the output of this function:
     rs_parse_branch_line git_branch_info "$git_status_porcelain"
     echo "$git_branch_info"
 }
 
-function test_git_head_origin_head() {
+test_git_head_origin_head() {
     git_status_porcelain=$(git status --porcelain --untracked-files=normal --branch 2>/dev/null)
     rs_parse_branch_line git_branch_info "$git_status_porcelain"
     # testing the 'git_head' output of this function:
@@ -669,7 +668,7 @@ function test_git_head_origin_head() {
     echo "$git_head"
 }
 
-function test_git_head_origin_head_nocolor() {
+test_git_head_origin_head_nocolor() {
     git_status_porcelain=$(git status --porcelain --untracked-files=normal --branch 2>/dev/null)
     rs_parse_branch_line git_branch_info "$git_status_porcelain"
     # testing the 'git_head_nocolor' output of this function:
@@ -677,7 +676,7 @@ function test_git_head_origin_head_nocolor() {
     echo "$git_head_nocolor"
 }
 
-function test_git_head_origin_origin() {
+test_git_head_origin_origin() {
     git_status_porcelain=$(git status --porcelain --untracked-files=normal --branch 2>/dev/null)
     rs_parse_branch_line git_branch_info "$git_status_porcelain"
     # testing the 'git_origin' output of this function:
