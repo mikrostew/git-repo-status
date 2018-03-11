@@ -527,6 +527,10 @@ rs_svn_local_status() {
 # - https://github.com/sjl/oh-my-zsh/commit/3d22ee248c6bce357c018a93d31f8d292d2cb4cd
 # - https://github.com/magicmonty/bash-git-prompt
 repo_status() {
+    if [ "$REPO_STATUS_DISABLE" == "1" ]; then
+      echo "(repo status disabled)"
+      return
+    fi
     rs_status=''
     # git
     # TODO - if the repo is too big (voyager-web) and this takes too long, do --untracked-files=no
