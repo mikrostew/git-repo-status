@@ -154,7 +154,11 @@ rs_parse_branch_line() {
 rs_git_stash() {
     # only do this if there are stashes
     if [ -e "$2/refs/stash" ]; then
-        local last_stash_time=$(stat -f "%m" "$2/refs/stash")
+        if platform_is_mac; then
+          last_stash_time=$(stat -f "%m" "$2/refs/stash")
+        else
+          last_stash_time=$(stat --format=%Y "$2/refs/stash")
+        fi
         local cached_stash_info=$(git config repoStatus.stashInfo)
         local cached_stash_time=${cached_stash_info%%:*} # string before ':'
         local cached_num_stashes=${cached_stash_info#*:} # string after ':'
