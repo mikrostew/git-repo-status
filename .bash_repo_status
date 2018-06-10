@@ -27,26 +27,6 @@ GS_COLOR_STASHED="$COLOR_FG_BOLD_MAGENTA"
 GS_COLOR_BACKUP_REF="$COLOR_FG_208"
 GS_COLOR_MODIFIED="$COLOR_FG_208"
 
-# svn colors
-RS_COLOR_SVN="$COLOR_FG_BOLD_BLUE"
-RS_COLOR_SVN_PATH="$COLOR_FG_BOLD_BLUE"
-RS_COLOR_SVN_REV="$COLOR_FG_BOLD_BLUE"
-RS_COLOR_SVN_OK="$COLOR_FG_GREEN"
-RS_COLOR_SVN_ERROR="$COLOR_FG_RED"
-# TODO
-RS_COLOR_SVN_CONFLICTED="$COLOR_FG_RED"
-RS_COLOR_SVN_ADDED="$COLOR_FG_RED"
-RS_COLOR_SVN_MODIFIED="$COLOR_FG_RED"
-RS_COLOR_SVN_DELETED="$COLOR_FG_RED"
-RS_COLOR_SVN_LOCKED="$COLOR_FG_RED"
-RS_COLOR_SVN_ADD_HISTORY="$COLOR_FG_RED"
-RS_COLOR_SVN_UNTRACKED="$COLOR_FG_RED"
-RS_COLOR_SVN_EXTERNAL="$COLOR_FG_RED"
-RS_COLOR_SVN_SWITCHED="$COLOR_FG_RED"
-RS_COLOR_SVN_IGNORED="$COLOR_FG_RED"
-RS_COLOR_SVN_MISSING="$COLOR_FG_RED"
-RS_COLOR_SVN_OBSTRUCTED="$COLOR_FG_RED"
-
 # git symbols
 GS_SYM_GIT='git'
 GS_SYM_BRANCH='|'
@@ -57,7 +37,6 @@ GS_SYM_NO_REMOTE='-'
 GS_SYM_NEED_PUSH='⇧'
 GS_SYM_NEED_PULL='⇩'
 GS_SYM_NEED_PUSH_UNTRACKED='⇪'
-#GS_SYM_FORK='⑂'
 GS_SYM_FORK='Ⴤ'
 GS_SYM_REMOTE_OK='✓'
 GS_SYM_STAGED='+'
@@ -72,32 +51,11 @@ GS_SYM_BISECT='⟀'
 GS_SYM_REVERT='⎌'
 GS_SYM_LOCAL_OK='✓'
 
-# svn symbols
-RS_SYM_SVN='svn'
-RS_SYM_SVN_REPO_PATH='|'
-RS_SYM_SVN_UNKNOWN_URL='?'
-RS_SYM_SVN_REV='@'
-RS_SYM_SVN_ERROR='!'
-# TODO
-RS_SYM_SVN_CONFLICTED="<conflicted>" #!
-RS_SYM_SVN_ADDED="<added>" #+
-RS_SYM_SVN_MODIFIED="<modified>" #*
-RS_SYM_SVN_DELETED="<deleted>" #x
-RS_SYM_SVN_LOCKED="<locked>" #lck
-RS_SYM_SVN_ADD_HISTORY="<add-history>" # +h
-RS_SYM_SVN_UNTRACKED="<untracked>" #?
-RS_SYM_SVN_EXTERNAL="<external>" #ext
-RS_SYM_SVN_SWITCHED="<switched>" #sw
-RS_SYM_SVN_IGNORED="<ignored>" #i
-RS_SYM_SVN_MISSING="<missing>" #mis
-RS_SYM_SVN_OBSTRUCTED="<obstructed>" #obs
-
 # set colors
 # argument(s)
 # $1 - variable to write
 # $2 - color esc sequence
 # $3 - string to color
-# TODO: move this to the .bash_colors file
 gs_color()  { printf -v "$1" "$2$3$COLOR_RESET"; }
 
 # asynchronously fetch updates for all remotes (does not run if already running)
@@ -468,63 +426,6 @@ rs_git_remote_status() {
     fi
 }
 
-rs_svn_local_status() {
-    local svn_status=$(svn status 2>/dev/null)
-
-    local svn_num_conflicted=0
-    local svn_num_added=0
-    local svn_num_modified=0
-    local svn_num_deleted=0
-    local svn_num_locked=0
-    local svn_num_history=0
-    local svn_num_untracked=0
-    local svn_num_external=0
-    local svn_num_switched=0
-    local svn_num_ignored=0
-    local svn_num_missing=0
-    local svn_num_obstructed=0
-    while IFS='' read -r line; do
-        local svn_stat_columns=${line:0:7}
-        case "$svn_stat_columns" in
-            #  see `svn status --help` for details on these codes
-            C??????)  ((svn_num_conflicted++)) ;; # item conflicted
-            ?C?????)  ((svn_num_conflicted++)) ;; # file/directory properties conflicted
-            ??????C)  ((svn_num_conflicted++)) ;; # tree conflict
-            A??????)  ((svn_num_added++)) ;; # item added
-            [MR]??????)  ((svn_num_modified++)) ;; # item modified/replaced
-            ?M?????)  ((svn_num_modified++)) ;; # file/directory properties modified
-            D??????)  ((svn_num_deleted++)) ;; # item deleted
-            \???????)  ((svn_num_untracked++)) ;; # item untracked
-            I??????)  ((svn_num_ignored++)) ;; # item ignored
-            ??L????)  ((svn_num_locked++)) ;; # working copy directory locked
-            ?????K?)  ((svn_num_locked++)) ;; # repository lock token present
-            ???+???)  ((svn_num_history++)) ;; # commit will contain addition-with-history
-            X??????)  ((svn_num_external++)) ;; # unversioned directory created by externals
-            ????X??)  ((svn_num_external++)) ;; # versioned file created by externals
-            ????S??)  ((svn_num_switched++)) ;; # item has a switched URL
-            \!??????)  ((svn_num_missing++)) ;; # item missing (removed by non-svn command)
-            ~??????)  ((svn_num_obstructed++)) ;; # item obstructed by some item of a different kind
-        esac
-    done <<< "$svn_status"
-
-    local svn_conflicted=$(rs_format_count "$svn_num_conflicted" "$RS_COLOR_SVN_CONFLICTED" "$RS_SYM_SVN_CONFLICTED")
-    local svn_added=$(rs_format_count "$svn_num_added" "$RS_COLOR_SVN_ADDED" "$RS_SYM_SVN_ADDED")
-    local svn_modified=$(rs_format_count "$svn_num_modified" "$RS_COLOR_SVN_MODIFIED" "$RS_SYM_SVN_MODIFIED")
-    local svn_deleted=$(rs_format_count "$svn_num_deleted" "$RS_COLOR_SVN_DELETED" "$RS_SYM_SVN_DELETED")
-    local svn_locked=$(rs_format_count "$svn_num_locked" "$RS_COLOR_SVN_LOCKED" "$RS_SYM_SVN_LOCKED")
-    local svn_history=$(rs_format_count "$svn_num_history" "$RS_COLOR_SVN_ADD_HISTORY" "$RS_SYM_SVN_ADD_HISTORY")
-    local svn_untracked=$(rs_format_count "$svn_num_untracked" "$RS_COLOR_SVN_UNTRACKED" "$RS_SYM_SVN_UNTRACKED")
-    local svn_external=$(rs_format_count "$svn_num_external" "$RS_COLOR_SVN_EXTERNAL" "$RS_SYM_SVN_EXTERNAL")
-    local svn_switched=$(rs_format_count "$svn_num_switched" "$RS_COLOR_SVN_SWITCHED" "$RS_SYM_SVN_SWITCHED")
-    local svn_ignored=$(rs_format_count "$svn_num_ignored" "$RS_COLOR_SVN_IGNORED" "$RS_SYM_SVN_IGNORED")
-    local svn_missing=$(rs_format_count "$svn_num_missing" "$RS_COLOR_SVN_MISSING" "$RS_SYM_SVN_MISSING")
-    local svn_obstructed=$(rs_format_count "$svn_num_obstructed" "$RS_COLOR_SVN_OBSTRUCTED" "$RS_SYM_SVN_OBSTRUCTED")
-
-    local svn_stat_arr=($svn_conflicted $svn_added $svn_modified $svn_deleted $svn_locked $svn_history $svn_untracked $svn_external $svn_switched $svn_ignored $svn_missing $svn_obstructed)
-    gs_join_by_space retval "${svn_stat_arr[@]}"
-    echo "$retval"
-}
-
 # show info about what kind of repo we're in
 # some code and ideas from:
 # - http://zanshin.net/2012/03/09/wordy-nerdy-zsh-prompt/
@@ -551,51 +452,6 @@ repo_status() {
         rs_git_local_status git_local_status "$git_dir" "$git_status_porcelain"
         rs_status+="$gs_git$git_head$git_reviewid $git_remote_status / $git_local_status"
     fi
-    # svn
-    # rs_svn=$(gs_color "$RS_COLOR_SVN" "$RS_SYM_SVN")
-    # rs_svn_info=$(svn info 2>&1)
-    # if [ "$?" -eq 0 ]; then
-    #     # TODO: split URI and path with something like '/'
-    #     if [[ "$rs_svn_info" =~ URL:\ ([^$'\n']+) ]]; then
-    #         svn_url="${BASH_REMATCH[1]}"
-    #         svn_protocol=$(expr "$svn_url" : '\([a-z]\+://\)') # match the svn:// or https:// from the start of the repo
-    #         svn_path="$RS_SYM_SVN_REPO_PATH$(gs_color "$RS_COLOR_SVN_PATH" "${svn_url#$svn_protocol}")"
-    #     else
-    #         svn_path=$(gs_color "$RS_COLOR_SVN_PATH" "$RS_SYM_SVN_UNKNOWN_URL")
-    #     fi
-    #     if [[ "$rs_svn_info" =~ Revision:\ ([0-9]+) ]]; then
-    #         svn_revision="$RS_SYM_SVN_REV$(gs_color "$RS_COLOR_SVN_REV" "${BASH_REMATCH[1]}")"
-    #     fi
-
-    #     local svn_local_status=$(rs_svn_local_status)
-
-    #     rs_status+="  $rs_svn$svn_path$svn_revision $svn_local_status"
-    # elif [ "$?" -eq 1 ]; then
-    #     # TODO: break these into an error function
-    #     if [[ "$rs_svn_info" =~ svn:\ E155021 ]]; then
-    #         if [[ "$rs_svn_info" =~ \(format\ ([0-9]+)\) ]]; then
-    #             svn_repo_format="${BASH_REMATCH[1]}"
-    #         else
-    #             svn_repo_format="?"
-    #         fi
-    #         svn_version=$(svn --version --quiet)
-    #         svn_error="$RS_SYM_SVN_ERROR$(gs_color "$RS_COLOR_SVN_ERROR" " client too old (client: $svn_version, repo format: $svn_repo_format)")"
-    #         rs_status+="  $rs_svn$svn_error"
-    #     elif [[ "$rs_svn_info" =~ svn:\ E155036 ]]; then
-    #         if [[ "$rs_svn_info" =~ \(format\ ([0-9]+) ]]; then
-    #             svn_repo_format="${BASH_REMATCH[1]}"
-    #         else
-    #             svn_repo_format="?"
-    #         fi
-    #         svn_version=$(svn --version --quiet)
-    #         svn_error="$RS_SYM_SVN_ERROR$(gs_color "$RS_COLOR_SVN_ERROR" " working copy too old (client: $svn_version, repo format: $svn_repo_format)")"
-    #         rs_status+="  $rs_svn$svn_error"
-    #     #elif [[ "$rs_svn_info" =~ svn:\ (E[0-9]+) ]]; then
-    #     #    svn_error_code="${BASH_REMATCH[1]}"
-    #     #    svn_error="$RS_SYM_SVN_ERROR$(gs_color "$RS_COLOR_SVN_ERROR" " unknown svn error: $svn_error_code")"
-    #     #    rs_status+="  $rs_svn$svn_error"
-    #     fi
-    # fi
     echo -e "$rs_status"
 }
 
