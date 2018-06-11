@@ -193,23 +193,22 @@ rs_git_rebase() {
 # $1 - return variable name
 # $2 - git base directory
 rs_git_merge() {
-    local git_dir="$2"
-    if [ -f "$git_dir/MERGE_HEAD" ]; then
-        local git_merge_head="$(<"$git_dir/MERGE_HEAD")"
-        # TODO use a different command for this (plumbing command?)
-        local git_merge_branch="$(git branch --no-color --contains "$git_merge_head")"
-        local git_merge_name=''
-        if [ "$git_merge_branch" ]; then
-            # remove '*' and leading whitespace from branch name
-            git_merge_name="${git_merge_branch/\*/ }"
-            git_merge_name="${git_merge_name#"${git_merge_name%%[![:space:]]*}"}"
-        else
-            git_merge_name="${git_merge_head:0:8}"
-        fi
-        unset -v colored_merge_string
-        gs_color colored_merge_string "$GS_COLOR_MERGE" "$git_merge_name"
-        printf -v "$1" "$GS_SYM_MERGE$colored_merge_string"
+  git_dir="$2"
+  if [ -f "$git_dir/MERGE_HEAD" ]; then
+    git_merge_head="$(<"$git_dir/MERGE_HEAD")"
+    git_merge_branch="$(git branch --no-color --contains "$git_merge_head")"
+    git_merge_name=''
+    if [ "$git_merge_branch" ]; then
+      # remove '*' and leading whitespace from branch name
+      git_merge_name="${git_merge_branch/\*/ }"
+      git_merge_name="${git_merge_name#"${git_merge_name%%[![:space:]]*}"}"
+    else
+      git_merge_name="${git_merge_head:0:8}"
     fi
+    unset -v colored_merge_string
+    gs_color colored_merge_string "$GS_COLOR_MERGE" "$git_merge_name"
+    printf -v "$1" "$GS_SYM_MERGE$colored_merge_string"
+  fi
 }
 
 # figure out if there is a bisect happening
@@ -444,7 +443,7 @@ repo_status() {
         gs_remote_update_async
         unset -v gs_git
         gs_color gs_git "$GS_COLOR_GIT" "$GS_SYM_GIT"
-        local git_dir=$(git rev-parse --git-dir)
+        git_dir=$(git rev-parse --git-dir)
         rs_parse_branch_line git_branch_info "$git_status_porcelain"
         rs_git_head_origin git_head git_head_nocolor git_origin "$git_branch_info"
         rs_git_reviewid git_reviewid "$git_head_nocolor"
