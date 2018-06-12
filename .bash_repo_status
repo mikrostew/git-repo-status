@@ -141,26 +141,25 @@ rs_git_stash() {
 }
 
 # parse the output from `git show-ref original`
+# (backup refs created after running filter-branch)
 # argument(s):
 # $1 - return variable name
+# $2 - git base dir
 rs_git_backup_refs() {
-    # TODO: caching
-    # check modified timestamp of .git/packed-refs (with stat)
-    # if modified, `grep "original" .git/packed-refs`
-    # count that and cache it
-    # also need to run `find .git/refs/original/refs/*/*` for any refs in that folder
-    # then combine those 2 counts
-    local git_show_ref=$(git show-ref original)
-    if [ "$git_show_ref" ]; then
-        local git_num_orig_refs=0
-        # TODO: easier way to do this?
-        local IFS=''
-        while read -r line; do
-            if [[ "$line" =~ ^[0-9a-f]+[[:space:]]+refs/original ]]; then
-                ((git_num_orig_refs++))
-            fi
-        done <<< "$git_show_ref"
-        rs_format_count "$1" "$git_num_orig_refs" "$GS_COLOR_BACKUP_REF" "$GS_SYM_BACKUP_REF"
+    # only do this if there are recent backup refs (don't care about .git/packed-refs for now)
+    if [ -d "$2/refs/original" ]; then
+        local git_show_ref=$(git show-ref original)
+        if [ "$git_show_ref" ]; then
+            local git_num_orig_refs=0
+            # TODO: easier way to do this?
+            local IFS=''
+            while read -r line; do
+                if [[ "$line" =~ ^[0-9a-f]+[[:space:]]+refs/original ]]; then
+                    ((git_num_orig_refs++))
+                fi
+            done <<< "$git_show_ref"
+            rs_format_count "$1" "$git_num_orig_refs" "$GS_COLOR_BACKUP_REF" "$GS_SYM_BACKUP_REF"
+        fi
     fi
 }
 
@@ -276,7 +275,7 @@ rs_git_local_status() {
 
     unset -v git_stashed
     rs_git_stash git_stashed "$git_dir"
-    rs_git_backup_refs git_backup_refs
+    rs_git_backup_refs git_backup_refs "$git_dir"
     rs_git_rebase git_rebase "$git_dir"
     rs_git_merge git_merge "$git_dir"
     rs_git_bisect git_bisect "$git_dir"
@@ -496,7 +495,7 @@ debug_repo_status_function_time() {
 
     printf "%-30s %s\n" \
       "rs_git_backup_refs()" \
-      "$( ( time rs_git_backup_refs somevar ) 2>&1 | $real_time )"
+      "$( ( time rs_git_backup_refs somevar $git_dir ) 2>&1 | $real_time )"
 
     printf "%-30s %s\n" \
       "rs_git_rebase()" \
