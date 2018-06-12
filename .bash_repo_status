@@ -58,9 +58,17 @@ GS_SYM_LOCAL_OK='✓'
 # $3 - string to color
 gs_color()  { printf -v "$1" "$2$3$COLOR_RESET"; }
 
-# asynchronously fetch updates for all remotes (does not run if already running)
+# asynchronously fetch updates for all remotes
 gs_remote_update_async() {
   nohup git remote update >/dev/null 2>&1 &
+}
+
+# argument(s)
+# $1 - git directory
+gs_untracked_update_async() {
+  git_dir="$1"
+  cmd_string="sleep 1; git status --porcelain --untracked-files=normal | grep ^?? | wc -l | tee $git_dir/repo-status-untracked"
+  nohup $SHELL -c "$cmd_string" >/dev/null 2>&1 &
 }
 
 # join elements of an array with " " (space) character
@@ -249,7 +257,7 @@ rs_git_local_status() {
     local git_num_staged=0
     local git_num_modified=0
     local git_num_conflict=0
-    local git_num_untracked=0
+    local git_num_untracked=$([ -f .git/repo-status-untracked ] && echo $(< .git/repo-status-untracked) || echo "0")
     local IFS=''
     while read -r line; do
         XY=${line:0:2}
@@ -259,7 +267,7 @@ rs_git_local_status() {
             DD)      ((git_num_conflict++)) ;;  # unmerged (both deleted)
             AA)      ((git_num_conflict++)) ;;  # unmerged (both added)
             ?[MADT]) ((git_num_modified++)) ;;  # modified/added/deleted/typechange in working tree
-            \?\?)    ((git_num_untracked++)) ;; # untracked in index and working tree
+            # \?\?)    ((git_num_untracked++)) ;; # untracked in index and working tree
         esac
         case "$XY" in
             [MARCD]?) ((git_num_staged++)) ;; # modified/added/renamed/copied/deleted in index
@@ -434,13 +442,13 @@ repo_status() {
     fi
     rs_status=''
     # git
-    # TODO - if the repo is too big (voyager-web) and this takes too long, do --untracked-files=no
-    git_status_porcelain=$(git status --porcelain --untracked-files=normal --branch 2>/dev/null)
+    git_status_porcelain=$(git status --porcelain --untracked-files=no --branch 2>/dev/null)
     if [ "$?" -eq 0 ]; then
         gs_remote_update_async
         unset -v gs_git
         gs_color gs_git "$GS_COLOR_GIT" "$GS_SYM_GIT"
         git_dir=$(git rev-parse --git-dir)
+        gs_untracked_update_async "$git_dir"
         rs_parse_branch_line git_branch_info "$git_status_porcelain"
         rs_git_head_origin git_head git_head_nocolor git_origin "$git_branch_info"
         rs_git_reviewid git_reviewid "$git_head_nocolor"
