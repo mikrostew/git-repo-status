@@ -60,9 +60,7 @@ gs_color()  { printf -v "$1" "$2$3$COLOR_RESET"; }
 
 # asynchronously fetch updates for all remotes (does not run if already running)
 gs_remote_update_async() {
-    if [[ ! $(ps) =~ git\ remote\ update ]]; then
-        nohup git remote update >/dev/null 2>&1 &
-    fi
+  nohup git remote update >/dev/null 2>&1 &
 }
 
 # join elements of an array with " " (space) character
