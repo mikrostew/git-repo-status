@@ -87,7 +87,7 @@ gs_join_by_space() {
 # $2 - counter
 # $3 - color
 # $4 - trailing symbol
-# TODO - not thread safe if I parallelize this stuff
+# NOTE: not thread safe if I parallelize this stuff
 rs_format_count() {
     if [ "$2" -gt 0 ]; then
         unset -v colored_string
@@ -101,7 +101,7 @@ rs_format_count() {
 # $1 - return variable name
 # $2 - output from `git status --porcelain ...`
 rs_parse_branch_line() {
-    # TODO: this seems overcomplicated, maybe just use a regex?
+    # this seems overcomplicated, maybe just use a regex?
     local IFS=''
     while read -r line; do
         local XY=${line:0:2}
@@ -132,7 +132,7 @@ rs_git_stash() {
             # this is faster than "git stash list" in my testing:
             local git_stash_list=$(git reflog show stash)
             local git_num_stashed=0
-            # TODO: cleaner way to count number of lines in a string var?
+            # there may be a cleaner way to count number of lines in a string var, but this is fine for now
             local IFS=''
             while read -r line; do
                 ((git_num_stashed++))
@@ -157,7 +157,7 @@ rs_git_backup_refs() {
         local git_show_ref=$(git show-ref original)
         if [ "$git_show_ref" ]; then
             local git_num_orig_refs=0
-            # TODO: easier way to do this?
+            # there may be an easier way to do this, but this works for now
             local IFS=''
             while read -r line; do
                 if [[ "$line" =~ ^[0-9a-f]+[[:space:]]+refs/original ]]; then
@@ -482,7 +482,7 @@ debug_repo_status_function_time() {
     # (https://www.gnu.org/software/sed/manual/sed.html)
     real_time="sed -n s/real[[:space:]]*//p"
 
-    # TODO refactor this stuff to a loop
+    # can refactor this stuff to a loop, but whatever
     printf "%-30s %s\n" \
       "repo_status()" \
       "$( ( time repo_status ) 2>&1 | $real_time )"
