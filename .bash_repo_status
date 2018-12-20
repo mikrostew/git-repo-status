@@ -480,7 +480,7 @@ debug_repo_status_function_time() {
     # - don't automatically print input lines (-n)
     # - for the "real   0m0.001s" line, strip out the "real" and whitespace, and print that
     # (https://www.gnu.org/software/sed/manual/sed.html)
-    real_time="sed -n s/real[[:space:]]*//p"
+    real_time="sed -n s/real[[:space:]]*// p"
 
     # can refactor this stuff to a loop, but whatever
     printf "%-30s %s\n" \
