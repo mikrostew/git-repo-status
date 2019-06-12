@@ -51,6 +51,15 @@ GS_SYM_BISECT='⟀'
 GS_SYM_REVERT='⎌'
 GS_SYM_LOCAL_OK='✓'
 
+
+# for platform-specific things
+platform_is_mac() {
+    [ "$(uname)" == "Darwin" ] # OSX
+}
+platform_is_linux() {
+    [ "$(uname)" == "Linux" ] # Linux
+}
+
 # set colors
 # argument(s)
 # $1 - variable to write
