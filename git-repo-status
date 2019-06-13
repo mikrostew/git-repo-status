@@ -450,6 +450,7 @@ rs_git_remote_status() {
 # - https://github.com/magicmonty/bash-git-prompt
 repo_status() {
     if [ "$REPO_STATUS_DISABLE" == "1" ]; then
+      # TODO: echo nothing, and return an error code instead?
       echo "(repo status disabled)"
       return
     fi
@@ -472,7 +473,25 @@ repo_status() {
     echo -e "$rs_status"
 }
 
+#### Actually run the repo_status function if this was called as a script ####
+
+# if this was sourced, return before running the function
+# (the script that sourced this can run the function as needed)
+return 0 2>/dev/null
+
+# optional arg: directory to run this function (default to PWD)
+if [ -n "$1" ]
+then
+  # run the status for the input dir
+  # (using a subshell so the `cd` does not have an effect if this is sourced)
+  ( cd "$1"; repo_status )
+else
+  # default to PWD, don't need to `cd`
+  repo_status
+fi
+
 #################### Debugging & Profiling ####################
+# TODO: move these to a separate script that sources this one
 
 # trace the calls that are made to git
 debug_repo_status_call_trace() {
