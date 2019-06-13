@@ -90,6 +90,40 @@ gs_untracked_update_async() {
   nohup $SHELL -c "$cmd_string" >/dev/null 2>&1 &
 }
 
+# TODO: also, I want a way to check for merge conflicts with origin/master
+# (from https://stackoverflow.com/a/6283843)
+# I am testing this out, and I should be able to do:
+#
+# first, same as gs_remote_update_async() above:
+#   $ git remote update
+#   Fetching origin
+#
+# then:
+#   `git merge-base origin/master <current-branch>`
+#
+# for example:
+#   $ git merge-base origin/master volta-acls
+#   5749b26a6cf92bd17e60846c23e6d69c88a0a741
+#
+# (which gives the same result in the other order)
+#   $ git merge-base volta-acls origin/master
+#   5749b26a6cf92bd17e60846c23e6d69c88a0a741
+#
+# finally try to merge, in memory (order matters this time!):
+#   `git merge-tree <mergebase> origin/master <current-branch>`
+#
+# like:
+#   $ git merge-tree 5749b26a6cf92bd17e60846c23e6d69c88a0a741 origin/master volta-acls
+#   (big dump of info)
+#
+# BUT, that's not super helpful on it's own - need to grep that for conflicts
+# which are marked by "+<<<<<<< .our" or "+>>>>>>> .their"
+# so:
+#   $ git merge-tree 5749b26a6cf92bd17e60846c23e6d69c88a0a741 origin/master volta-acls | grep "<<<<<< .our\|>>>>>> .their"
+#   (no output, so this is ok)
+#
+# TODO: test this when there are merge conflicts, to make sure it behaves as expected
+
 # join elements of an array with " " (space) character
 # arguments:
 # $1 - return variable name
