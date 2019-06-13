@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# TODO: add these colors here, because this is not portable
 source "$DOTFILES_DIR/.bash_colors"
 
 # git colors
@@ -28,7 +29,9 @@ GS_COLOR_BACKUP_REF="$COLOR_FG_208"
 GS_COLOR_MODIFIED="$COLOR_FG_208"
 
 # git symbols
+# TODO: change this from the word 'git' to an actual symbol
 GS_SYM_GIT='git'
+# TODO: for this one, after that change ^^^, don't really need this symbol (still need tag and hash)
 GS_SYM_BRANCH='|'
 GS_SYM_TAG='»'
 GS_SYM_HASH='#'
@@ -65,7 +68,16 @@ platform_is_linux() {
 # $1 - variable to write
 # $2 - color esc sequence
 # $3 - string to color
-gs_color()  { printf -v "$1" "$2$3$COLOR_RESET"; }
+gs_color()  {
+  if [ -z "$no_color" ]
+  then
+    # if no_color is not set, then use colors
+    printf -v "$1" "$2$3$COLOR_RESET"
+  else
+    # otherwise don't add colors
+    printf -v "$1" "$3"
+  fi
+}
 
 # asynchronously fetch updates for all remotes
 gs_remote_update_async() {
@@ -478,6 +490,15 @@ repo_status() {
 # if this was sourced, return before running the function
 # (the script that sourced this can run the function as needed)
 return 0 2>/dev/null
+
+# parse command line options
+arg="$1"
+case "$arg" in
+  -n|--no-color)
+    shift # shift off the argument
+    no_color="true"
+    ;;
+esac
 
 # optional arg: directory to run this function (default to PWD)
 if [ -n "$1" ]
