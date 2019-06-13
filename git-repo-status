@@ -4,7 +4,6 @@
 source "$DOTFILES_DIR/.bash_colors"
 
 # git colors
-GS_COLOR_GIT="$COLOR_FG_BOLD_BLUE"
 GS_COLOR_BRANCH="$COLOR_FG_BOLD_BLUE"
 GS_COLOR_REVIEWID="$COLOR_FG_BOLD_BLUE"
 GS_COLOR_NO_REMOTE="$COLOR_FG_BOLD_BLUE"
@@ -29,10 +28,6 @@ GS_COLOR_BACKUP_REF="$COLOR_FG_208"
 GS_COLOR_MODIFIED="$COLOR_FG_208"
 
 # git symbols
-# TODO: change this from the word 'git' to an actual symbol
-GS_SYM_GIT='git'
-# TODO: for this one, after that change ^^^, don't really need this symbol (still need tag and hash)
-GS_SYM_BRANCH='|'
 GS_SYM_TAG='»'
 GS_SYM_HASH='#'
 GS_SYM_REVIEWBOARD='r'
@@ -84,6 +79,9 @@ gs_remote_update_async() {
   nohup git remote update >/dev/null 2>&1 &
 }
 
+# TODO: make this configurable, via an env var
+#  - if this is in PS1, it should probably be async for responsiveness
+#  - but in tmux status, that doesn't matter and it adds too much delay
 # argument(s)
 # $1 - git directory
 gs_untracked_update_async() {
@@ -336,7 +334,7 @@ rs_git_head_origin() {
         local git_branch_arr=( ${BASH_REMATCH[1]//.../ } ) # replace '...' with ' '
         unset -v colored_empty_string
         gs_color colored_empty_string "$GS_COLOR_BRANCH" "${git_branch_arr[0]}"
-        printf -v "$1" "$GS_SYM_BRANCH$colored_empty_string"
+        printf -v "$1" "$colored_empty_string"
         printf -v "$2" "${git_branch_arr[0]}"
         printf -v "$3" "${git_branch_arr[1]}"
     # elif [[ "$status_line" =~ Initial\ commit\ on\ (.+) ]]; then
@@ -344,7 +342,7 @@ rs_git_head_origin() {
     #     # "Initial commit on master...origin/master" - checked out empty repo
     #     unset -v colored_head_string
     #     gs_color colored_head_string "$GS_COLOR_BRANCH" "${BASH_REMATCH[1]%%...*}"
-    #     printf -v "$1" "$GS_SYM_BRANCH$colored_head_string"
+    #     printf -v "$1" "$colored_head_string"
     #     printf -v "$2" "${BASH_REMATCH[1]%%...*}"
     elif [[ "$status_line" =~ no\ branch ]]; then
         # "HEAD (no branch)" - on tag or detached on commit
@@ -368,7 +366,7 @@ rs_git_head_origin() {
         local git_branch_arr=( ${status_line//.../ } ) # replace '...' with ' '
         unset -v colored_branches_string
         gs_color colored_branches_string "$GS_COLOR_BRANCH" "${git_branch_arr[0]}"
-        printf -v "$1" "$GS_SYM_BRANCH$colored_branches_string"
+        printf -v "$1" "$colored_branches_string"
         printf -v "$2" "${git_branch_arr[0]}"
         printf -v "$3" "${git_branch_arr[1]}"
     fi
@@ -471,8 +469,6 @@ repo_status() {
     git_status_porcelain=$(git status --porcelain --untracked-files=no --branch 2>/dev/null)
     if [ "$?" -eq 0 ]; then
         gs_remote_update_async
-        unset -v gs_git
-        gs_color gs_git "$GS_COLOR_GIT" "$GS_SYM_GIT"
         git_dir=$(git rev-parse --git-dir)
         gs_untracked_update_async "$git_dir"
         rs_parse_branch_line git_branch_info "$git_status_porcelain"
@@ -480,7 +476,7 @@ repo_status() {
         rs_git_reviewid git_reviewid "$git_head_nocolor"
         rs_git_remote_status git_remote_status "$git_head_nocolor" "$git_origin"
         rs_git_local_status git_local_status "$git_dir" "$git_status_porcelain"
-        rs_status+="$gs_git$git_head$git_reviewid $git_remote_status / $git_local_status"
+        rs_status+="$git_head$git_reviewid $git_remote_status / $git_local_status"
     fi
     echo -e "$rs_status"
 }
