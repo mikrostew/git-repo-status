@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 
-# TODO: add these colors here, because this is not portable
-source "$DOTFILES_DIR/.bash_colors"
+# TODO: use dollar sign in front of these to interpret the escape sequences
+# (instead of using `echo -e` everywhere?)
+COLOR_FG_BOLD_BLUE='\033[1;34m'
+COLOR_FG_RED='\033[0;31m'
+COLOR_FG_GREEN='\033[0;32m'
+COLOR_FG_BOLD_BLACK='\033[1;30m'
+COLOR_FG_BOLD_BLACK='\033[1;30m'
+COLOR_FG_208='\033[38;5;208m' # orange
 
 # git colors
 GS_COLOR_BRANCH="$COLOR_FG_BOLD_BLUE"
@@ -75,6 +81,8 @@ gs_color()  {
 }
 
 # asynchronously fetch updates for all remotes
+# TODO: does this need to be done every time? what if I only do this every half hour or something?
+# (and save the last time in config somewhere?)
 gs_remote_update_async() {
   nohup git remote update >/dev/null 2>&1 &
 }
