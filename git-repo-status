@@ -31,6 +31,7 @@ GS_COLOR_UNTRACKED="$COLOR_FG_BOLD_BLACK"
 GS_COLOR_STASHED="$COLOR_FG_BOLD_MAGENTA"
 GS_COLOR_BACKUP_REF="$COLOR_FG_208"
 GS_COLOR_MODIFIED="$COLOR_FG_208"
+GS_COLOR_CONFLICT="$COLOR_FG_RED"
 
 # git symbols
 GS_SYM_TAG='»'
@@ -53,6 +54,7 @@ GS_SYM_MERGE='⑃'
 GS_SYM_BISECT='⟀'
 GS_SYM_REVERT='⎌'
 GS_SYM_LOCAL_OK='✓'
+GS_SYM_CONFLICT='✘'
 
 
 # for platform-specific things
@@ -79,44 +81,36 @@ gs_color()  {
   fi
 }
 
-# asynchronously fetch updates for all remotes
-gs_remote_update_async() {
-  nohup git remote update >/dev/null 2>&1 &
-}
+# asynchronous things
+# (operations which are too slow to wait for)
+#  * fetch updates for all remotes
+#  * check current branch for merge conflict with origin/master (adapted from https://stackoverflow.com/a/6283843)
+# arguments:
+# $1 - local git branch
+gs_async_updates_and_checks() {
+  current_branch="$1"
 
-# TODO: I want a way to check for merge conflicts with origin/master
-# (from https://stackoverflow.com/a/6283843)
-# I am testing this out, and I should be able to do:
-#
-# first, same as gs_remote_update_async() above:
-#   $ git remote update
-#   Fetching origin
-#
-# then:
-#   `git merge-base origin/master <current-branch>`
-#
-# for example:
-#   $ git merge-base origin/master volta-acls
-#   5749b26a6cf92bd17e60846c23e6d69c88a0a741
-#
-# (which gives the same result in the other order)
-#   $ git merge-base volta-acls origin/master
-#   5749b26a6cf92bd17e60846c23e6d69c88a0a741
-#
-# finally try to merge, in memory (order matters this time!):
-#   `git merge-tree <mergebase> origin/master <current-branch>`
-#
-# like:
-#   $ git merge-tree 5749b26a6cf92bd17e60846c23e6d69c88a0a741 origin/master volta-acls
-#   (big dump of info)
-#
-# BUT, that's not super helpful on it's own - need to grep that for conflicts
-# which are marked by "+<<<<<<< .our" or "+>>>>>>> .their"
-# so:
-#   $ git merge-tree 5749b26a6cf92bd17e60846c23e6d69c88a0a741 origin/master volta-acls | grep "<<<<<< .our\|>>>>>> .their"
-#   (no output, so this is ok)
-#
-# TODO: test this when there are merge conflicts, to make sure it behaves as expected
+  # async commands:
+  #  * update remotes
+  #  * get mergebase for current branch and origin/master
+  #  * do the merge-tree in-memory, and grep for any conflicts
+  #  * if there are conflicts, set that in the config
+  async_cmds=$(cat <<END_COMMANDS
+git remote update
+mbase="\$(git merge-base origin/master $current_branch)"
+conflicts="\$(git merge-tree \$mbase origin/master "$current_branch" | grep "<<<<<< .our\|>>>>>> .their")"
+if [ -n "\$conflicts" ]
+then
+  git config repoStatus.conflicts "$GS_SYM_CONFLICT"
+else
+  git config repoStatus.conflicts ""
+fi
+END_COMMANDS
+
+)
+  # run those without blocking
+  nohup bash -c "$async_cmds" >/dev/null 2>&1 &
+}
 
 # join elements of an array with " " (space) character
 # arguments:
@@ -478,6 +472,20 @@ rs_git_remote_status() {
     fi
 }
 
+# arguments:
+# $1 - return variable name
+gs_conflicts() {
+  unset -v "$1"
+  local config_conflict_info=$(git config repoStatus.conflicts)
+  if [ -n "$config_conflict_info" ]
+  then
+    unset -v colored_conflict_string
+    gs_color colored_conflict_string "$GS_COLOR_CONFLICT" "$config_conflict_info"
+    printf -v "$1" "$colored_conflict_string"
+  fi
+}
+
+
 # show info about what kind of repo we're in
 # some code and ideas from:
 # - http://zanshin.net/2012/03/09/wordy-nerdy-zsh-prompt/
@@ -494,14 +502,15 @@ repo_status() {
     # NOTE: can possibly use `git update-index --untracked-cache` and `git update-index --split-index` to make this faster
     git_status_porcelain=$(git status --porcelain --untracked-files=normal --branch 2>/dev/null)
     if [ "$?" -eq 0 ]; then
-        gs_remote_update_async
         git_dir=$(git rev-parse --git-dir)
         rs_parse_branch_line git_branch_info "$git_status_porcelain"
         rs_git_head_origin git_head git_head_nocolor git_origin "$git_branch_info"
+        gs_async_updates_and_checks "$git_head_nocolor"
         rs_git_reviewid git_reviewid "$git_head_nocolor"
         rs_git_remote_status git_remote_status "$git_head_nocolor" "$git_origin"
         rs_git_local_status git_local_status "$git_dir" "$git_status_porcelain"
-        rs_status+="$git_head$git_reviewid $git_remote_status / $git_local_status"
+        gs_conflicts git_conflicts
+        rs_status+="$git_head$git_conflicts$git_reviewid $git_remote_status / $git_local_status"
     fi
     echo "$rs_status"
 }
