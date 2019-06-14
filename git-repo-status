@@ -141,13 +141,16 @@ rs_format_count() {
 # arguments:
 # $1 - return variable name
 # $2 - output from `git status --porcelain ...`
-rs_parse_branch_line() {
+gs_parse_branch_line() {
     # this seems overcomplicated, maybe just use a regex?
     local IFS=''
     while read -r line; do
         local XY=${line:0:2}
         case "$XY" in
-            \#\#)  printf -v "$1" "${line:3}"; break ;;
+            \#\#)
+              printf -v "$1" "${line:3}"
+              break
+              ;;
         esac
     done <<< "$2"
 }
@@ -344,7 +347,7 @@ rs_git_local_status() {
 # $2 - return variable name for head (nocolor)
 # $3 - return variable name for origin
 # $4 - git branch line from `git status --porcelain --branch`, without the leading "## "
-rs_git_head_origin() {
+gs_git_head_origin() {
     unset -v "$1" "$2" "$3"
     local status_line="$4"
     if [[ "$status_line" =~ No\ commits\ yet\ on\ (.+) ]]; then
@@ -408,7 +411,7 @@ rs_git_reviewid() {
 # $1 - return variable name
 # $2 - local git branch
 # $3 - origin branch that is tracking the local branch (if it exists)
-rs_git_remote_status() {
+gs_git_remote_status() {
     unset -v "$1"
     local git_head="$2"
     local git_origin="$3"
@@ -491,27 +494,37 @@ gs_conflicts() {
 # - http://zanshin.net/2012/03/09/wordy-nerdy-zsh-prompt/
 # - https://github.com/sjl/oh-my-zsh/commit/3d22ee248c6bce357c018a93d31f8d292d2cb4cd
 # - https://github.com/magicmonty/bash-git-prompt
+#
+# arguments:
+#  $1: (optional) --no-color: don't add color to the output
 repo_status() {
-    if [ "$REPO_STATUS_DISABLE" == "1" ]; then
-      echo "(disabled)"
-      return
-    fi
-    rs_status=''
-    # git status
-    # NOTE: can possibly use `git update-index --untracked-cache` and `git update-index --split-index` to make this faster
-    git_status_porcelain=$(git status --porcelain --untracked-files=normal --branch 2>/dev/null)
-    if [ "$?" -eq 0 ]; then
-        git_dir=$(git rev-parse --git-dir)
-        rs_parse_branch_line git_branch_info "$git_status_porcelain"
-        rs_git_head_origin git_head git_head_nocolor git_origin "$git_branch_info"
-        gs_async_updates_and_checks "$git_head_nocolor"
-        rs_git_reviewid git_reviewid "$git_head_nocolor"
-        rs_git_remote_status git_remote_status "$git_head_nocolor" "$git_origin"
-        rs_git_local_status git_local_status "$git_dir" "$git_status_porcelain"
-        gs_conflicts git_conflicts
-        rs_status+="$git_head$git_conflicts$git_reviewid $git_remote_status / $git_local_status"
-    fi
-    echo "$rs_status"
+  if [ "$REPO_STATUS_DISABLE" == "1" ]; then
+    echo "(disabled)"
+    return
+  fi
+
+  # check for nocolor
+  if [ "$1" == "--no-color" ]
+  then
+    no_color="true"
+  fi
+
+  rs_status=''
+  # git status
+  # NOTE: can possibly use `git update-index --untracked-cache` and `git update-index --split-index` to make this faster
+  git_status_porcelain=$(git status --porcelain --untracked-files=normal --branch 2>/dev/null)
+  if [ "$?" -eq 0 ]; then
+    git_dir=$(git rev-parse --git-dir)
+    gs_parse_branch_line git_branch_info "$git_status_porcelain"
+    gs_git_head_origin git_head git_head_nocolor git_origin "$git_branch_info"
+    gs_async_updates_and_checks "$git_head_nocolor"
+    rs_git_reviewid git_reviewid "$git_head_nocolor"
+    gs_git_remote_status git_remote_status "$git_head_nocolor" "$git_origin"
+    rs_git_local_status git_local_status "$git_dir" "$git_status_porcelain"
+    gs_conflicts git_conflicts
+    rs_status+="$git_head$git_conflicts$git_reviewid $git_remote_status / $git_local_status"
+  fi
+  echo "$rs_status"
 }
 
 ################################
@@ -527,7 +540,7 @@ arg="$1"
 case "$arg" in
   -n|--no-color)
     shift # shift off the argument
-    no_color="true"
+    no_color="--no-color"
     ;;
 esac
 
@@ -536,8 +549,8 @@ if [ -n "$1" ]
 then
   # run the status for the input dir
   # (using a subshell so the `cd` does not have an effect if this is sourced)
-  ( cd "$1"; repo_status )
+  ( cd "$1"; repo_status "$no_color")
 else
   # default to PWD, don't need to `cd`
-  repo_status
+  repo_status "$no_color"
 fi
