@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 
-# TODO: use dollar sign in front of these to interpret the escape sequences
-# (instead of using `echo -e` everywhere?)
-COLOR_FG_BOLD_BLUE='\033[1;34m'
-COLOR_FG_RED='\033[0;31m'
-COLOR_FG_GREEN='\033[0;32m'
-COLOR_FG_BOLD_BLACK='\033[1;30m'
-COLOR_FG_BOLD_BLACK='\033[1;30m'
-COLOR_FG_208='\033[38;5;208m' # orange
+# using dollar sign in front of these to interpret the escape sequences
+COLOR_FG_BOLD_BLUE=$'\033[1;34m'
+COLOR_FG_RED=$'\033[0;31m'
+COLOR_FG_GREEN=$'\033[0;32m'
+COLOR_FG_BOLD_BLACK=$'\033[1;30m'
+COLOR_FG_BOLD_BLACK=$'\033[1;30m'
+COLOR_FG_208=$'\033[38;5;208m' # orange
 
 # git colors
 GS_COLOR_BRANCH="$COLOR_FG_BOLD_BLUE"
@@ -520,7 +519,7 @@ repo_status() {
         rs_git_local_status git_local_status "$git_dir" "$git_status_porcelain"
         rs_status+="$git_head$git_reviewid $git_remote_status / $git_local_status"
     fi
-    echo -e "$rs_status"
+    echo "$rs_status"
 }
 
 #### Actually run the repo_status function if this was called as a script ####
