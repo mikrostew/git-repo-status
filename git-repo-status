@@ -493,8 +493,7 @@ gs_conflicts() {
 # - https://github.com/magicmonty/bash-git-prompt
 repo_status() {
     if [ "$REPO_STATUS_DISABLE" == "1" ]; then
-      # TODO: echo nothing, and return an error code instead?
-      echo "(repo status disabled)"
+      echo "(disabled)"
       return
     fi
     rs_status=''
