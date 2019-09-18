@@ -519,7 +519,8 @@ repo_status() {
     git_dir=$(git rev-parse --git-dir)
     gs_parse_branch_line git_branch_info "$git_status_porcelain"
     gs_git_head_origin git_head git_head_nocolor git_origin "$git_branch_info"
-    gs_async_updates_and_checks "$git_head_nocolor"
+    # TODO: these hammer my CPU - only do them every so often, somehow...
+    #gs_async_updates_and_checks "$git_head_nocolor"
     rs_git_reviewid git_reviewid "$git_head_nocolor"
     gs_git_remote_status git_remote_status "$git_head_nocolor" "$git_origin"
     rs_git_local_status git_local_status "$git_dir" "$git_status_porcelain"
